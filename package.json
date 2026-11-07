@@ -1,0 +1,20 @@
+{
+  "name": "cqa-conversation-quality",
+  "version": "1.0.0",
+  "description": "Conversation Quality Analytics — AI-оценка диалогов операторов по чек-листу",
+  "type": "module",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server/index.js",
+    "dev": "node --watch --env-file-if-exists=.env server/index.js",
+    "batch": "node --env-file-if-exists=.env scripts/batch.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=20.6"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
+    "zod": "^4.6.7"
+  }
+}

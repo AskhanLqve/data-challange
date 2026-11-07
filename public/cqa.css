@@ -1,0 +1,124 @@
+/* Все стили ограничены тегом cqa-app — компонент можно встроить в Dynamics 365 без конфликтов. */
+cqa-app [hidden] { display: none !important; }
+cqa-app {
+  --bg: #f5f6f8; --panel: #fff; --ink: #1d2330; --muted: #6b7385; --line: #e3e6ec;
+  --accent: #1f6feb; --accent-soft: #e8f0fe; --ok: #1a7f37; --ok-soft: #e6f4ea; --bad: #cf222e; --bad-soft: #fde8ea;
+  --na: #6e7781; --na-soft: #eef0f2; --warn: #9a6700; --warn-soft: #fff4d6; --hl: #fff3b0;
+  --client: #f0f4ff; --operator: #eaf7ee; --bot: #f6f2ff; --system: #f3f4f6;
+  --radius: 10px; --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
+  display: block; font: 14px/1.45 -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: var(--ink); background: var(--bg); min-height: 100vh;
+}
+@media (prefers-color-scheme: dark) {
+  cqa-app {
+    --bg: #0f1115; --panel: #171a21; --ink: #e6e8ee; --muted: #9aa3b5; --line: #2a2f3a;
+    --accent: #5b9dff; --accent-soft: #1b2a44; --ok: #4ac26b; --ok-soft: #13291b; --bad: #ff6b6b; --bad-soft: #3a1a1d;
+    --na: #9aa3b5; --na-soft: #252a33; --warn: #e3b341; --warn-soft: #33290f; --hl: #4a4114;
+    --client: #19223a; --operator: #142a1c; --bot: #241c38; --system: #1d2027;
+  }
+}
+cqa-app * { box-sizing: border-box; }
+cqa-app button, cqa-app input, cqa-app select, cqa-app textarea { font: inherit; color: inherit; }
+cqa-app .topbar { display: flex; align-items: center; gap: 18px; padding: 10px 20px; background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 20; flex-wrap: wrap; }
+cqa-app .brand { font-weight: 700; letter-spacing: .2px; }
+cqa-app .brand small { color: var(--muted); font-weight: 500; margin-left: 6px; }
+cqa-app nav { display: flex; gap: 4px; }
+cqa-app nav a { padding: 6px 12px; border-radius: 8px; color: var(--muted); text-decoration: none; font-weight: 500; }
+cqa-app nav a.active { background: var(--accent-soft); color: var(--accent); }
+cqa-app nav a .count { background: var(--bad); color: #fff; border-radius: 9px; padding: 0 6px; font-size: 11px; margin-left: 4px; }
+cqa-app .spacer { flex: 1; }
+cqa-app .model-badge { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 20px; padding: 3px 10px; }
+cqa-app .model-badge.off { color: var(--bad); border-color: var(--bad); }
+cqa-app main { padding: 18px 20px 60px; max-width: 1500px; margin: 0 auto; }
+cqa-app h1 { font-size: 20px; margin: 0 0 14px; }
+cqa-app h2 { font-size: 16px; margin: 0 0 10px; }
+cqa-app h3 { font-size: 14px; margin: 0 0 6px; }
+cqa-app .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px 16px; }
+cqa-app .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+cqa-app .stack > * + * { margin-top: 12px; }
+cqa-app .muted { color: var(--muted); }
+cqa-app .small { font-size: 12px; }
+cqa-app a.btn { text-decoration: none; display: inline-block; }
+cqa-app .btn { border: 1px solid var(--line); background: var(--panel); padding: 6px 12px; border-radius: 8px; cursor: pointer; font-weight: 500; white-space: nowrap; }
+cqa-app .btn:hover { border-color: var(--accent); }
+cqa-app .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+cqa-app .btn.danger { color: var(--bad); }
+cqa-app .btn.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
+cqa-app .btn.sm { padding: 3px 8px; font-size: 12px; }
+cqa-app .btn:disabled { opacity: .5; cursor: default; }
+cqa-app input[type=text], cqa-app input[type=number], cqa-app input[type=search], cqa-app select, cqa-app textarea { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 6px 9px; }
+cqa-app textarea { width: 100%; resize: vertical; min-height: 60px; }
+cqa-app label.field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+cqa-app label.field > input, cqa-app label.field > select, cqa-app label.field > textarea { color: var(--ink); font-size: 14px; }
+cqa-app table { width: 100%; border-collapse: collapse; }
+cqa-app th, cqa-app td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+cqa-app th { font-size: 12px; color: var(--muted); font-weight: 600; position: sticky; top: 0; background: var(--panel); }
+cqa-app tbody tr { cursor: pointer; }
+cqa-app tbody tr:hover { background: var(--accent-soft); }
+cqa-app .table-wrap { overflow-x: auto; }
+cqa-app .tag { display: inline-block; padding: 1px 8px; border-radius: 20px; font-size: 12px; font-weight: 600; background: var(--na-soft); color: var(--na); }
+cqa-app .tag.yes { background: var(--ok-soft); color: var(--ok); }
+cqa-app .tag.no { background: var(--bad-soft); color: var(--bad); }
+cqa-app .tag.na { background: var(--na-soft); color: var(--na); }
+cqa-app .tag.warn { background: var(--warn-soft); color: var(--warn); }
+cqa-app .tag.blue { background: var(--accent-soft); color: var(--accent); }
+cqa-app .score { font-weight: 700; font-variant-numeric: tabular-nums; }
+cqa-app .score.big { font-size: 34px; line-height: 1; }
+cqa-app .toast { position: fixed; right: 20px; bottom: 20px; background: var(--ink); color: var(--bg); padding: 10px 14px; border-radius: 8px; z-index: 100; max-width: 460px; white-space: pre-wrap; box-shadow: var(--shadow); }
+cqa-app .toast.err { background: var(--bad); color: #fff; }
+cqa-app .progress { height: 6px; background: var(--line); border-radius: 4px; overflow: hidden; min-width: 160px; }
+cqa-app .progress > div { height: 100%; background: var(--accent); transition: width .3s; }
+
+/* Карточка диалога */
+cqa-app .card-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 16px; align-items: start; }
+@media (max-width: 1000px) { cqa-app .card-grid { grid-template-columns: 1fr; } }
+cqa-app .transcript { max-height: calc(100vh - 150px); overflow-y: auto; position: sticky; top: 64px; }
+cqa-app .audio-bar { position: sticky; top: -14px; background: var(--panel); padding: 8px 0 10px; z-index: 5; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+cqa-app .audio-bar audio { width: 100%; }
+cqa-app .msg { display: grid; grid-template-columns: 34px 1fr; gap: 8px; padding: 7px 9px; border-radius: 8px; margin-bottom: 4px; border: 2px solid transparent; scroll-margin: 90px; }
+cqa-app .msg .num { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; padding-top: 1px; }
+cqa-app .msg .meta { font-size: 11px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+cqa-app .msg .role { font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+cqa-app .msg .text { white-space: pre-wrap; word-break: break-word; }
+cqa-app .msg.client { background: var(--client); }
+cqa-app .msg.operator { background: var(--operator); }
+cqa-app .msg.bot { background: var(--bot); }
+cqa-app .msg.system { background: var(--system); font-style: italic; }
+cqa-app .msg.inrange { border-left-color: var(--warn); }
+cqa-app .msg.flash { border-color: var(--accent); background: var(--hl); }
+cqa-app .msg .play { border: 0; background: none; cursor: pointer; color: var(--accent); padding: 0; font-size: 12px; }
+cqa-app .totals { display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: center; }
+cqa-app .sections .sec { display: grid; grid-template-columns: 1fr 110px 120px; gap: 8px; align-items: center; font-size: 13px; }
+cqa-app .bar { height: 7px; background: var(--line); border-radius: 4px; overflow: hidden; }
+cqa-app .bar > div { height: 100%; background: var(--ok); }
+cqa-app .crit { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; background: var(--panel); }
+cqa-app .crit.flagged { border-color: var(--bad); background: var(--bad-soft); }
+cqa-app .crit-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+cqa-app .crit-head .name { font-weight: 600; flex: 1; min-width: 180px; }
+cqa-app .crit-head .pts { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
+cqa-app .crit .expl { margin: 6px 0; }
+cqa-app .ev { display: inline-flex; gap: 6px; align-items: baseline; border: 1px solid var(--line); border-radius: 8px; padding: 3px 8px; margin: 3px 6px 0 0; cursor: pointer; background: var(--panel); max-width: 100%; text-align: left; }
+cqa-app .ev:hover { border-color: var(--accent); }
+cqa-app .ev b { color: var(--accent); white-space: nowrap; }
+cqa-app .ev span { font-size: 12px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+cqa-app .review { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: var(--warn-soft); font-size: 13px; }
+cqa-app .appeal-form { margin-top: 8px; padding: 10px; border: 1px dashed var(--accent); border-radius: 8px; }
+cqa-app details summary { cursor: pointer; color: var(--muted); }
+cqa-app pre { white-space: pre-wrap; word-break: break-word; font-size: 12px; background: var(--bg); padding: 10px; border-radius: 8px; max-height: 420px; overflow: auto; }
+
+/* Апелляции */
+cqa-app .appeal { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 16px; }
+@media (max-width: 1000px) { cqa-app .appeal { grid-template-columns: 1fr; } }
+cqa-app .fragment .msg { margin-bottom: 3px; }
+
+/* Редактор чек-листа */
+cqa-app .crit-edit { border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; background: var(--panel); }
+cqa-app .crit-edit .grid { display: grid; grid-template-columns: 70px 1fr 170px 150px 90px 110px; gap: 8px; align-items: end; }
+@media (max-width: 1000px) { cqa-app .crit-edit .grid { grid-template-columns: 1fr 1fr; } }
+cqa-app .scale-row { display: grid; grid-template-columns: 80px 1fr auto; gap: 6px; margin-top: 4px; }
+cqa-app .weights { font-variant-numeric: tabular-nums; }
+cqa-app .weights.bad { color: var(--bad); }
+cqa-app .empty { text-align: center; padding: 40px; color: var(--muted); }
+cqa-app .kv { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; font-size: 13px; }
+cqa-app .kv dt { color: var(--muted); }
+cqa-app .kv dd { margin: 0; }
