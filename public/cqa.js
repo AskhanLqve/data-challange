@@ -363,7 +363,7 @@
               h('div', { class: 'bar' }, h('div', { style: { width: (s.percent ?? 0) + '%' } })),
               h('span', { class: 'small', style: { textAlign: 'right' } }, s.points == null ? 'N/A' : `${fmt(s.points)} / ${fmt(s.max)}`)))))),
         ev.summary ? h('p', { class: 'muted', style: { marginBottom: 0 } }, ev.summary) : null,
-        h('div', { class: 'small muted', style: { marginTop: '6px' } }, `${cl.name} v${ev.checklist_version} · ${ev.provider}/${ev.model}${ev.effort ? ' · effort ' + ev.effort : ''}${ev.runs > 1 ? ` · ${ev.runs} прогона` : ''} · ${Math.round(ev.duration_ms / 1000)} с · $${fmt(ev.cost_usd, 4)} · ${fmtDate(ev.created_at)}`)));
+        h('div', { class: 'small muted', style: { marginTop: '6px' } }, `${cl.name} v${ev.checklist_version} · ${ev.provider}/${ev.model}${ev.effort ? ' · effort ' + ev.effort : ''}${ev.mode === 'per-criterion' ? ' · по критериям' : ''}${ev.runs > 1 ? ` · ${ev.runs} прогона` : ''} · ${Math.round(ev.duration_ms / 1000)} с · $${fmt(ev.cost_usd, 4)} · ${fmtDate(ev.created_at)}`)));
 
       const appealsByCrit = new Map();
       for (const a of ev.appeals || []) appealsByCrit.set(a.criterion_id, [...(appealsByCrit.get(a.criterion_id) || []), a]);

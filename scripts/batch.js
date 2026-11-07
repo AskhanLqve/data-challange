@@ -1,61 +1,42 @@
-// Пакетная оценка из терминала (для контрольного набора):
-//   pnpm batch --group CONTROL [--checklist cqa-default] [--only-new]
-// Загружает набор из API организаторов, оценивает все диалоги текущей версией чек-листа,
-// сохраняет оценки в хранилище (видны в UI) и пишет results/<group>.json и .csv.
+// Пакетная оценка набора из терминала (например, контрольного):
+//   pnpm batch --group CONTROL [--checklist cqa-default] [--only-new] [--api http://localhost:3000]
+// Работает через API запущенного сервера (pnpm start): загружает набор по group_id из API организаторов,
+// ставит его в очередь оценки, показывает прогресс и сохраняет results/<group>.json и .csv.
+// Оценки сразу видны в интерфейсе; очередь переживает перезапуск сервера.
 import fs from 'node:fs';
-import { db } from '../server/db.js';
-import { fetchGroup } from '../server/dataset.js';
-import { evaluateConversation } from '../server/evaluator.js';
-import { providerInfo } from '../server/llm.js';
-import { answerLabel } from '../server/scoring.js';
-import { DEFAULT_CHECKLIST } from '../server/defaultChecklist.js';
 
 const args = process.argv.slice(2);
 const arg = (k, d) => { const i = args.indexOf(`--${k}`); return i >= 0 ? args[i + 1] : d; };
+const API = arg('api', process.env.CQA_API || `http://localhost:${process.env.PORT || 3000}`).replace(/\/$/, '');
 const group = arg('group', 'DEV');
-const onlyNew = args.includes('--only-new');
-const concurrency = Number(arg('concurrency', process.env.CQA_CONCURRENCY || 4));
 
-const info = providerInfo();
-if (!info.configured) { console.error('Задайте ANTHROPIC_API_KEY в .env (или CQA_PROVIDER=ollama)'); process.exit(1); }
-
-let checklist = db.get('checklists', arg('checklist', DEFAULT_CHECKLIST.id)) || db.all('checklists')[0];
-if (!checklist) checklist = { ...DEFAULT_CHECKLIST, version: 1 };
-console.log(`Модель: ${info.provider}/${info.model} · чек-лист «${checklist.name}» v${checklist.version}`);
-
-const { imported } = await fetchGroup(group);
-console.log(`Набор ${group}: ${imported.length} диалогов`);
-let ids = imported;
-if (onlyNew) {
-  const done = new Set(db.filter('evaluations', (e) => e.checklist_id === checklist.id && e.checklist_version === checklist.version).map((e) => e.conversation_id));
-  ids = ids.filter((i) => !done.has(i));
+async function api(method, url, body) {
+  const res = await fetch(API + url, { method, headers: body ? { 'content-type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
+  const ct = res.headers.get('content-type') || '';
+  const data = ct.includes('json') ? await res.json() : await res.text();
+  if (!res.ok) throw new Error(data.error || data || `HTTP ${res.status}`);
+  return data;
 }
 
-const results = []; let cost = 0; const queue = [...ids];
-await Promise.all(Array.from({ length: Math.min(concurrency, queue.length) }, async () => {
-  while (queue.length) {
-    const id = queue.shift();
-    const conv = db.get('conversations', id, 'conversation_id');
-    try {
-      const ev = await evaluateConversation(conv, structuredClone(checklist));
-      db.insert('evaluations', ev);
-      cost += ev.cost_usd;
-      results.push(ev);
-      console.log(`✓ ${id}: ${ev.final_score.total}${ev.final_score.gross_error ? ' ⚠ грубая ошибка' : ''}  ($${ev.cost_usd})`);
-    } catch (e) { console.error(`✗ ${id}: ${e.message}`); }
-  }
-}));
-await db.flush();
+try { await api('GET', '/api/health'); } catch { console.error(`Сервер не отвечает на ${API}. Запустите: pnpm start`); process.exit(1); }
+const health = await api('GET', '/api/health');
+const checklists = await api('GET', '/api/checklists');
+const checklist = checklists.find((c) => c.id === arg('checklist', 'cqa-default')) || checklists[0];
+console.log(`Модель: ${health.provider}/${health.model} · чек-лист «${checklist.name}» v${checklist.version}`);
 
-results.sort((a, b) => a.conversation_id.localeCompare(b.conversation_id));
+const fetched = await api('POST', '/api/datasets/fetch', { group_id: group });
+console.log(`Набор ${group}: загружено ${fetched.total} диалогов`);
+let job = await api('POST', '/api/evaluate/batch', { group_id: group, checklist_id: checklist.id, only_new: args.includes('--only-new') });
+console.log(`Очередь ${job.id}: ${job.total} диалогов`);
+while (job.status === 'running') {
+  await new Promise((r) => setTimeout(r, 3000));
+  job = await api('GET', `/api/jobs/${job.id}`);
+  process.stdout.write(`\r  готово ${job.done}/${job.total}, ошибок ${job.failed}   `);
+}
+console.log('');
+for (const e of job.errors) console.error(`✗ ${e.conversation_id}: ${e.error}`);
+
 fs.mkdirSync('results', { recursive: true });
-fs.writeFileSync(`results/${group}.json`, JSON.stringify(results.map((e) => ({
-  conversation_id: e.conversation_id, total: e.final_score.total, gross_error: e.final_score.gross_error,
-  criteria: e.criteria.map((c) => ({ id: c.criterion_id, answer: c.final_answer, points: c.final.points, explanation: c.ai.explanation, evidence: c.ai.evidence.map((x) => ({ message: x.message, quote: x.quote })) })),
-})), null, 2));
-const crits = checklist.criteria;
-const csv = [['conversation_id', 'total', 'gross_error', ...crits.map((c) => `${c.code} ${c.name}`)].join(';'),
-  ...results.map((e) => [e.conversation_id, e.final_score.total, e.final_score.gross_error ? 'yes' : 'no', ...crits.map((c) => answerLabel(c, e.criteria.find((x) => x.criterion_id === c.id)?.final_answer))].join(';'))].join('\n');
-fs.writeFileSync(`results/${group}.csv`, '﻿' + csv);
-console.log(`\nГотово: ${results.length}/${ids.length} · стоимость $${cost.toFixed(4)} (в среднем $${(cost / Math.max(1, results.length)).toFixed(4)} за диалог)`);
-console.log(`Файлы: results/${group}.json, results/${group}.csv`);
+fs.writeFileSync(`results/${group}.json`, JSON.stringify(await api('GET', `/api/export?format=json&group_id=${group}&checklist_id=${checklist.id}`), null, 2));
+fs.writeFileSync(`results/${group}.csv`, await api('GET', `/api/export?group_id=${group}&checklist_id=${checklist.id}`));
+console.log(`Готово: ${job.done}/${job.total} · стоимость $${job.cost_usd} · файлы results/${group}.json, results/${group}.csv`);

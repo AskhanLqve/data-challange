@@ -1,0 +1,819 @@
+{
+ "description": "Собственные пограничные случаи: каждый проверяет одно правило чек-листа. Размечены только целевые критерии.",
+ "checklist_id": "cqa-default",
+ "items": [
+  {
+   "conversation_id": "syn-ru-01",
+   "channel": "agent chat",
+   "language": "RU",
+   "audio_url": null,
+   "transcript": [
+    {
+     "timestamp": "00:00",
+     "speaker": "client",
+     "text": "Где посмотреть мой тариф?"
+    },
+    {
+     "timestamp": "00:02",
+     "speaker": "bot",
+     "text": "Здравствуйте! Я AIM, AI-ассистент Freedom Broker."
+    },
+    {
+     "timestamp": "00:20",
+     "speaker": "client",
+     "text": "Подключите оператора."
+    },
+    {
+     "timestamp": "00:22",
+     "speaker": "system",
+     "text": "Эскалация на оператора."
+    },
+    {
+     "timestamp": "01:00",
+     "speaker": "operator",
+     "text": "Здравствуйте! В веб-версии откройте вкладку «Кабинет», тариф указан под ФИО."
+    },
+    {
+     "timestamp": "01:20",
+     "speaker": "client",
+     "text": "Нашёл, спасибо."
+    },
+    {
+     "timestamp": "01:40",
+     "speaker": "operator",
+     "text": "Рада помочь! Если появятся вопросы — пишите. Хорошего дня!"
+    }
+   ],
+   "labels": {
+    "c01": "no",
+    "c07": "yes"
+   },
+   "purpose": "Контакт: приветствие без имени → «Нет». Завершение с предложением помощи и прощанием → «Да»."
+  },
+  {
+   "conversation_id": "syn-en-02",
+   "channel": "agent chat",
+   "language": "EN",
+   "audio_url": null,
+   "transcript": [
+    {
+     "timestamp": "00:00",
+     "speaker": "client",
+     "text": "Where can I see my pricing plan?"
+    },
+    {
+     "timestamp": "00:02",
+     "speaker": "bot",
+     "text": "Hello! I'm AIM, the Freedom Broker AI assistant."
+    },
+    {
+     "timestamp": "00:20",
+     "speaker": "client",
+     "text": "Please connect me to an agent."
+    },
+    {
+     "timestamp": "00:22",
+     "speaker": "system",
+     "text": "Chat transferred to an agent."
+    },
+    {
+     "timestamp": "01:00",
+     "speaker": "operator",
+     "text": "Здравствуйте, меня зовут Ольга. Open the Cabinet tab in the web version."
+    },
+    {
+     "timestamp": "01:20",
+     "speaker": "client",
+     "text": "Found it, thanks."
+    },
+    {
+     "timestamp": "01:40",
+     "speaker": "operator",
+     "text": "Glad it helped. Anything else I can do? Have a nice day!"
+    }
+   ],
+   "labels": {
+    "c01": "no"
+   },
+   "purpose": "Контакт: клиент пишет по-английски, оператор здоровается по-русски → «Нет»."
+  },
+  {
+   "conversation_id": "syn-ru-03",
+   "channel": "agent chat",
+   "language": "RU",
+   "audio_url": null,
+   "transcript": [
+    {
+     "timestamp": "00:00",
+     "speaker": "client",
+     "text": "Как пополнить счёт по реквизитам?"
+    },
+    {
+     "timestamp": "00:02",
+     "speaker": "bot",
+     "text": "Здравствуйте! Я AIM, AI-ассистент Freedom Broker."
+    },
+    {
+     "timestamp": "00:20",
+     "speaker": "client",
+     "text": "Подключите оператора."
+    },
+    {
+     "timestamp": "00:22",
+     "speaker": "system",
+     "text": "Эскалация на оператора."
+    },
+    {
+     "timestamp": "01:00",
+     "speaker": "operator",
+     "text": "В приложении откройте «Меню → Пополнить → Перевод по реквизитам»."
+    },
+    {
+     "timestamp": "01:30",
+     "speaker": "operator",
+     "text": "Извините, забыла представиться — меня зовут Дина. Здравствуйте!"
+    },
+    {
+     "timestamp": "01:50",
+     "speaker": "client",
+     "text": "Спасибо, нашла."
+    },
+    {
+     "timestamp": "02:10",
+     "speaker": "operator",
+     "text": "Отлично, реквизиты там же можно скачать. Всего доброго!"
+    }
+   ],
+   "labels": {
+    "c01": "no"
+   },
+   "purpose": "Контакт: приветствие и имя только во втором сообщении → «Нет»."
+  },
+  {
+   "conversation_id": "syn-ru-04",
+   "channel": "agent chat",
+   "language": "RU",
+   "audio_url": null,
+   "transcript": [
+    {
+     "timestamp": "00:00",
+     "speaker": "client",
+     "text": "Сколько у меня сейчас денег на брокерском счёте?"
+    },
+    {
+     "timestamp": "00:02",
+     "speaker": "bot",
+     "text": "Здравствуйте! Я AIM, AI-ассистент Freedom Broker."
+    },
+    {
+     "timestamp": "00:20",
+     "speaker": "client",
+     "text": "Подключите оператора."
+    },
+    {
+     "timestamp": "00:22",
+     "speaker": "system",
+     "text": "Эскалация на оператора."
+    },
+    {
+     "timestamp": "01:00",
+     "speaker": "operator",
+     "text": "Здравствуйте, меня зовут Олег. На вашем счёте сейчас 1 250 000 тенге."
+    },
+    {
+     "timestamp": "01:20",
+     "speaker": "client",
+     "text": "Спасибо."
+    },
+    {
+     "timestamp": "01:40",
+     "speaker": "operator",
+     "text": "Обращайтесь, если будут вопросы. До свидания!"
+    }
+   ],
+   "labels": {
+    "c03": "no"
+   },
+   "purpose": "Идентификация: баланс раскрыт без проверки личности → «Нет»."
+  },
+  {
+   "conversation_id": "syn-kz-05",
+   "channel": "agent chat",
+   "language": "KZ",
+   "audio_url": null,
+   "transcript": [
+    {
+     "timestamp": "00:00",
+     "speaker": "client",
+     "text": "Шотымдағы қалдықты айтып жібересіз бе?"
+    },
+    {
+     "timestamp": "00:02",
+     "speaker": "bot",
+     "text": "Сәлеметсіз бе! Мен AIM, Freedom Broker көмекшісімін."
+    },
+    {
+     "timestamp": "00:20",
+     "speaker": "client",
+     "text": "Операторға қосыңызшы."
+    },
+    {
+     "timestamp": "00:22",
+     "speaker": "system",
+     "text": "Чат операторға жіберілді."
+    },
+    {
+     "timestamp": "01:00",
+     "speaker": "operator",
+     "text": "Сәлеметсіз бе, мен Ерлан. Шотты тексеру үшін алдымен жеке басыңызды растайық."
+    },
+    {
+     "timestamp": "01:20",
+     "speaker": "client",
+     "text": "Жарайды."
+    },
+    {
+     "timestamp": "01:40",
+     "speaker": "system",
+     "text": "Клиенттің жеке басы расталды."
+    },
+    {
+     "timestamp": "02:00",
+     "speaker": "operator",
+     "text": "Рақмет. Шотыңызда 500 000 теңге бар. Тағы сұрақ болса, жазыңыз. Сау болыңыз!"
+    }
+   ],
+   "labels": {
+    "c03": "yes",
+    "c07": "yes"
+   },
+   "purpose": "Идентификация: личность подтверждена системой до раскрытия баланса → «Да»."
+  },
+  {
+   "conversation_id": "syn-en-06",
+   "channel": "agent chat",
+   "language": "EN",
+   "audio_url": null,
+   "transcript": [
+    {
+     "timestamp": "00:00",
+     "speaker": "client",
+     "text": "What is the commission on the standard pricing plan?"
+    },
+    {
+     "timestamp": "00:02",
+     "speaker": "bot",
+     "text": "Hello! I'm AIM, the Freedom Broker AI assistant."
+    },
+    {
+     "timestamp": "00:20",
+     "speaker": "client",
+     "text": "Please connect me to an agent."
+    },
+    {
+     "timestamp": "00:22",
+     "speaker": "system",
+     "text": "Chat transferred to an agent."
+    },
+    {
+     "timestamp": "01:00",
+     "speaker": "operator",
+     "text": "Hi, I'm Mark. On the standard plan the commission is shown in the Tariffs section of the website; the current plan details open there."
+    },
+    {
+     "timestamp": "01:30",
+     "speaker": "client",
+     "text": "Thanks, I see it."
+    },
+    {
+     "timestamp": "01:45",
+     "speaker": "operator",
+     "text": "Great. Let me know if you need anything else. Goodbye!"
+    }
+   ],
+   "labels": {
+    "c03": "na"
+   },
+   "purpose": "Идентификация: общий вопрос о тарифе, данные клиента не раскрываются → N/A."
+  },
+  {
+   "conversation_id": "syn-ru-07",
+   "channel": "agent chat",
+   "language": "RU",
+   "audio_url": null,
+   "transcript": [
+    {
+     "timestamp": "00:00",
+     "speaker": "client",
+     "text": "Здравствуйте"
+    },
+    {
+     "timestamp": "00:02",
+     "speaker": "bot",
+     "text": "Здравствуйте! Я AIM, AI-ассистент Freedom Broker."
+    },
+    {
+     "timestamp": "00:20",
+     "speaker": "client",
+     "text": "Подключите оператора."
+    },
+    {
+     "timestamp": "00:22",
+     "speaker": "system",
+     "text": "Эскалация на оператора."
+    },
+    {
+     "timestamp": "01:00",
+     "speaker": "operator",
+     "text": "Здравствуйте, меня зовут Ирина. Чем могу помочь?"
+    },
+    {
+     "timestamp": "01:10",
+     "speaker": "system",
+     "text": "Клиент покинул чат."
+    }
+   ],
+   "labels": {
+    "c04": "na",
+    "c07": "na"
+   },
+   "purpose": "Клиент ушёл до формулировки запроса: консультация и завершение → N/A."
+  },
+  {
+   "conversation_id": "syn-ru-08",
+   "channel": "agent chat",
+   "language": "RU",
+   "audio_url": null,
+   "transcript": [
+    {
+     "timestamp": "00:00",
+     "speaker": "client",
+     "text": "Где скачать отчёт брокера?"
+    },
+    {
+     "timestamp": "00:02",
+     "speaker": "bot",
+     "text": "Здравствуйте! Я AIM, AI-ассистент Freedom Broker."
+    },
+    {
+     "timestamp": "00:20",
+     "speaker": "client",
+     "text": "Подключите оператора."
+    },
+    {
+     "timestamp": "00:22",
+     "speaker": "system",
+     "text": "Эскалация на оператора."
+    },
+    {
+     "timestamp": "01:00",
+     "speaker": "operator",
+     "text": "Здравствуйте, я Павел. «Меню → Отчёты и документы → Отчёт брокера», выберите период."
+    },
+    {
+     "timestamp": "01:20",
+     "speaker": "client",
+     "text": "Скачал."
+    },
+    {
+     "timestamp": "01:25",
+     "speaker": "system",
+     "text": "Оператор закрыл чат."
+    }
+   ],
+   "labels": {
+    "c07": "no"
+   },
+   "purpose": "Завершение: оператор закрыл чат без итога и прощания → «Нет»."
+  },
+  {
+   "conversation_id": "syn-en-09",
+   "channel": "agent chat",
+   "language": "EN",
+   "audio_url": null,
+   "transcript": [
+    {
+     "timestamp": "00:00",
+     "speaker": "client",
+     "text": "How do I turn off Use Margin?"
+    },
+    {
+     "timestamp": "00:02",
+     "speaker": "bot",
+     "text": "Hello! I'm AIM, the Freedom Broker AI assistant."
+    },
+    {
+     "timestamp": "00:20",
+     "speaker": "client",
+     "text": "Please connect me to an agent."
+    },
+    {
+     "timestamp": "00:22",
+     "speaker": "system",
+     "text": "Chat transferred to an agent."
+    },
+    {
+     "timestamp": "01:00",
+     "speaker": "operator",
+     "text": "Hi, I'm Kate. Open Order Settings and untick Use Margin before submitting."
+    },
+    {
+     "timestamp": "01:20",
+     "speaker": "client",
+     "text": "Done."
+    },
+    {
+     "timestamp": "01:40",
+     "speaker": "operator",
+     "text": "Great, the order will now go without margin. Anything else I can help with? Goodbye!"
+    }
+   ],
+   "labels": {
+    "c07": "yes"
+   },
+   "purpose": "Завершение: итог + предложение помощи + прощание → «Да»."
+  },
+  {
+   "conversation_id": "syn-ru-10",
+   "channel": "agent chat",
+   "language": "RU",
+   "audio_url": null,
+   "transcript": [
+    {
+     "timestamp": "00:00",
+     "speaker": "client",
+     "text": "Посоветуйте, какие акции купить?"
+    },
+    {
+     "timestamp": "00:02",
+     "speaker": "bot",
+     "text": "Здравствуйте! Я AIM, AI-ассистент Freedom Broker."
+    },
+    {
+     "timestamp": "00:20",
+     "speaker": "client",
+     "text": "Подключите оператора."
+    },
+    {
+     "timestamp": "00:22",
+     "speaker": "system",
+     "text": "Эскалация на оператора."
+    },
+    {
+     "timestamp": "01:00",
+     "speaker": "operator",
+     "text": "Здравствуйте, я Глеб. Рекомендации по бумагам даёт персональный менеджер."
+    },
+    {
+     "timestamp": "01:30",
+     "speaker": "operator",
+     "text": "Но можете дать свой личный номер — вечером созвонимся, за небольшую плату подскажу лично, без компании."
+    },
+    {
+     "timestamp": "01:50",
+     "speaker": "client",
+     "text": "Нет, спасибо."
+    },
+    {
+     "timestamp": "02:00",
+     "speaker": "operator",
+     "text": "Как хотите. До свидания."
+    }
+   ],
+   "labels": {
+    "c08": "yes"
+   },
+   "purpose": "Грубая ошибка: просит личный номер для платной частной консультации → «Да»."
+  },
+  {
+   "conversation_id": "syn-kz-11",
+   "channel": "agent chat",
+   "language": "KZ",
+   "audio_url": null,
+   "transcript": [
+    {
+     "timestamp": "00:00",
+     "speaker": "client",
+     "text": "Неге ақша шығара алмаймын? Үшінші рет жазып отырмын!"
+    },
+    {
+     "timestamp": "00:02",
+     "speaker": "bot",
+     "text": "Сәлеметсіз бе! Мен AIM, Freedom Broker көмекшісімін."
+    },
+    {
+     "timestamp": "00:20",
+     "speaker": "client",
+     "text": "Операторға қосыңызшы."
+    },
+    {
+     "timestamp": "00:22",
+     "speaker": "system",
+     "text": "Чат операторға жіберілді."
+    },
+    {
+     "timestamp": "01:00",
+     "speaker": "operator",
+     "text": "Сәлеметсіз бе, мен Арман. Нұсқаулықты оқымайсыз ба, ақымақсыз ба?"
+    },
+    {
+     "timestamp": "01:20",
+     "speaker": "client",
+     "text": "Бұл не деген сөз?"
+    },
+    {
+     "timestamp": "01:40",
+     "speaker": "operator",
+     "text": "«Меню → Вывод» бөлімін ашыңыз. Сау болыңыз."
+    }
+   ],
+   "labels": {
+    "c08": "yes",
+    "c05": "no"
+   },
+   "purpose": "Оскорбление клиента → грубая ошибка «Да», эмпатия «Нет»."
+  },
+  {
+   "conversation_id": "syn-ru-12",
+   "channel": "agent chat",
+   "language": "RU",
+   "audio_url": null,
+   "transcript": [
+    {
+     "timestamp": "00:00",
+     "speaker": "client",
+     "text": "Почему мне не пришли дивиденды?"
+    },
+    {
+     "timestamp": "00:02",
+     "speaker": "bot",
+     "text": "Здравствуйте! Я AIM, AI-ассистент Freedom Broker."
+    },
+    {
+     "timestamp": "00:20",
+     "speaker": "client",
+     "text": "Подключите оператора."
+    },
+    {
+     "timestamp": "00:22",
+     "speaker": "system",
+     "text": "Эскалация на оператора."
+    },
+    {
+     "timestamp": "01:00",
+     "speaker": "operator",
+     "text": "Здравствуйте, меня зовут Нина. По какой бумаге ожидали выплату?"
+    },
+    {
+     "timestamp": "01:20",
+     "speaker": "client",
+     "text": "По Apple, за прошлый квартал."
+    },
+    {
+     "timestamp": "06:30",
+     "speaker": "operator",
+     "text": "Выплата по Apple ещё не поступила от депозитария, ожидается до конца месяца."
+    },
+    {
+     "timestamp": "06:50",
+     "speaker": "client",
+     "text": "Почему так долго не отвечали?"
+    },
+    {
+     "timestamp": "07:10",
+     "speaker": "operator",
+     "text": "Ожидайте зачисления. Хорошего дня!"
+    }
+   ],
+   "labels": {
+    "c06": "7"
+   },
+   "purpose": "Управление диалогом: пауза 5 минут без предупреждения об ожидании → один заметный сбой (7)."
+  },
+  {
+   "conversation_id": "syn-ru-13",
+   "channel": "agent chat",
+   "language": "RU",
+   "audio_url": null,
+   "transcript": [
+    {
+     "timestamp": "00:00",
+     "speaker": "client",
+     "text": "Почему мне не пришли дивиденды?"
+    },
+    {
+     "timestamp": "00:02",
+     "speaker": "bot",
+     "text": "Здравствуйте! Я AIM, AI-ассистент Freedom Broker."
+    },
+    {
+     "timestamp": "00:20",
+     "speaker": "client",
+     "text": "Подключите оператора."
+    },
+    {
+     "timestamp": "00:22",
+     "speaker": "system",
+     "text": "Эскалация на оператора."
+    },
+    {
+     "timestamp": "01:00",
+     "speaker": "operator",
+     "text": "Здравствуйте, меня зовут Нина. По какой бумаге ожидали выплату?"
+    },
+    {
+     "timestamp": "01:20",
+     "speaker": "client",
+     "text": "По Apple, за прошлый квартал."
+    },
+    {
+     "timestamp": "01:40",
+     "speaker": "operator",
+     "text": "Сейчас проверю статус выплаты, это займёт около 5 минут — пожалуйста, ожидайте."
+    },
+    {
+     "timestamp": "06:30",
+     "speaker": "operator",
+     "text": "Спасибо за ожидание. Выплата по Apple ещё не поступила от депозитария, ожидается до конца месяца."
+    },
+    {
+     "timestamp": "06:50",
+     "speaker": "client",
+     "text": "Понятно."
+    },
+    {
+     "timestamp": "07:10",
+     "speaker": "operator",
+     "text": "Если до конца месяца не поступит — напишите нам, проверим ещё раз. Хорошего дня!"
+    }
+   ],
+   "labels": {
+    "c06": "10",
+    "c02": "yes"
+   },
+   "purpose": "Управление диалогом: ожидание с предупреждением → 10. Выявление потребности: уточнил бумагу → «Да»."
+  },
+  {
+   "conversation_id": "syn-en-14",
+   "channel": "agent chat",
+   "language": "EN",
+   "audio_url": null,
+   "transcript": [
+    {
+     "timestamp": "00:00",
+     "speaker": "client",
+     "text": "Where do I download the broker report, and what is the commission for US stocks?"
+    },
+    {
+     "timestamp": "00:02",
+     "speaker": "bot",
+     "text": "Hello! I'm AIM, the Freedom Broker AI assistant."
+    },
+    {
+     "timestamp": "00:20",
+     "speaker": "client",
+     "text": "Please connect me to an agent."
+    },
+    {
+     "timestamp": "00:22",
+     "speaker": "system",
+     "text": "Chat transferred to an agent."
+    },
+    {
+     "timestamp": "01:00",
+     "speaker": "operator",
+     "text": "Hi, I'm Ann. Open Reports and Documents, then Broker Report, and choose the period."
+    },
+    {
+     "timestamp": "01:30",
+     "speaker": "client",
+     "text": "And the commission?"
+    },
+    {
+     "timestamp": "01:50",
+     "speaker": "operator",
+     "text": "You can download the report for any period you like. Goodbye!"
+    }
+   ],
+   "labels": {
+    "c04": "10"
+   },
+   "purpose": "Консультация: из двух вопросов закрыт один, существенный остался открытым → 10."
+  },
+  {
+   "conversation_id": "syn-ru-15",
+   "channel": "agent chat",
+   "language": "RU",
+   "audio_url": null,
+   "transcript": [
+    {
+     "timestamp": "00:00",
+     "speaker": "client",
+     "text": "У меня не проходит вывод на карту Kaspi, пишет «ошибка реквизитов»."
+    },
+    {
+     "timestamp": "00:02",
+     "speaker": "bot",
+     "text": "Здравствуйте! Я AIM, AI-ассистент Freedom Broker."
+    },
+    {
+     "timestamp": "00:20",
+     "speaker": "client",
+     "text": "Подключите оператора."
+    },
+    {
+     "timestamp": "00:22",
+     "speaker": "system",
+     "text": "Эскалация на оператора."
+    },
+    {
+     "timestamp": "01:00",
+     "speaker": "operator",
+     "text": "Здравствуйте, меня зовут Алия. На какую карту выводите и какая ошибка?"
+    },
+    {
+     "timestamp": "01:20",
+     "speaker": "client",
+     "text": "Я же написал: Kaspi, «ошибка реквизитов»."
+    },
+    {
+     "timestamp": "01:40",
+     "speaker": "operator",
+     "text": "Проверьте, что карта оформлена на ваше ФИО, и укажите IBAN полностью."
+    },
+    {
+     "timestamp": "02:00",
+     "speaker": "client",
+     "text": "Получилось."
+    },
+    {
+     "timestamp": "02:20",
+     "speaker": "operator",
+     "text": "Рада, что получилось. Если будут вопросы — пишите. До свидания!"
+    }
+   ],
+   "labels": {
+    "c02": "no"
+   },
+   "purpose": "Выявление потребности: переспросил уже сообщённые детали → «Нет»."
+  },
+  {
+   "conversation_id": "syn-kz-16",
+   "channel": "agent chat",
+   "language": "KZ",
+   "audio_url": null,
+   "transcript": [
+    {
+     "timestamp": "00:00",
+     "speaker": "client",
+     "text": "Ақша шығарғым келеді, бірақ қате шығады."
+    },
+    {
+     "timestamp": "00:02",
+     "speaker": "bot",
+     "text": "Сәлеметсіз бе! Мен AIM, Freedom Broker көмекшісімін."
+    },
+    {
+     "timestamp": "00:20",
+     "speaker": "client",
+     "text": "Операторға қосыңызшы."
+    },
+    {
+     "timestamp": "00:22",
+     "speaker": "system",
+     "text": "Чат операторға жіберілді."
+    },
+    {
+     "timestamp": "01:00",
+     "speaker": "operator",
+     "text": "Сәлеметсіз бе, мен Әлия. Қандай қате шығады және қай картаға шығарасыз?"
+    },
+    {
+     "timestamp": "01:20",
+     "speaker": "client",
+     "text": "Kaspi картасына, «реквизит қатесі» дейді."
+    },
+    {
+     "timestamp": "01:40",
+     "speaker": "operator",
+     "text": "Карта сіздің атыңызға рәсімделгенін тексеріп, IBAN-ды толық енгізіңіз."
+    },
+    {
+     "timestamp": "02:00",
+     "speaker": "client",
+     "text": "Болды, рақмет."
+    },
+    {
+     "timestamp": "02:20",
+     "speaker": "operator",
+     "text": "Жақсы, шешілгеніне қуаныштымын. Тағы сұрақ болса, жазыңыз. Сау болыңыз!"
+    }
+   ],
+   "labels": {
+    "c02": "yes",
+    "c04": "20"
+   },
+   "purpose": "Выявление потребности: уточнил недостающее до ответа → «Да»."
+  }
+ ]
+}

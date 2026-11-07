@@ -167,7 +167,7 @@ route('POST', '/api/evaluate', async ({ body }) => {
   if (!conv) throw new HttpError(404, 'Диалог не найден');
   const cl = db.get('checklists', body.checklist_id) || db.all('checklists')[0];
   if (!providerInfo().configured) throw new HttpError(503, 'LLM не настроен: задайте ANTHROPIC_API_KEY в .env (или CQA_PROVIDER=ollama)');
-  const ev = await evaluateConversation(conv, structuredClone(cl), { runs: body.runs ? Number(body.runs) : undefined });
+  const ev = await evaluateConversation(conv, structuredClone(cl), { runs: body.runs ? Number(body.runs) : undefined, mode: ['single', 'per-criterion'].includes(body.mode) ? body.mode : undefined });
   db.insert('evaluations', ev);
   return ev;
 });
@@ -180,6 +180,7 @@ route('POST', '/api/evaluate/batch', ({ body }) => {
   if (body.only_new) {
     const done = new Set(db.filter('evaluations', (e) => e.checklist_id === cl.id && e.checklist_version === cl.version).map((e) => e.conversation_id));
     ids = ids.filter((id) => !done.has(id));
+    if (!ids.length) throw new HttpError(400, `Все выбранные диалоги уже оценены чек-листом «${cl.name}» v${cl.version}`);
   }
   return startBatch(ids, structuredClone(cl));
 });

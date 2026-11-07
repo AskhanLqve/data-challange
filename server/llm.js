@@ -4,7 +4,7 @@ import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { z } from 'zod';
 
 export const PROVIDER = (process.env.CQA_PROVIDER || 'anthropic').toLowerCase();
-export const MODEL = process.env.CQA_MODEL || (PROVIDER === 'ollama' ? 'qwen2.5:7b-instruct' : 'claude-opus-5-5');
+export const MODEL = process.env.CQA_MODEL || (PROVIDER === 'ollama' ? 'qwen2.5:7b-instruct' : PROVIDER === 'stub' ? 'stub' : 'claude-opus-5-5');
 export const EFFORT = process.env.CQA_EFFORT || 'high';
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 
@@ -35,7 +35,7 @@ function anthropic() {
 }
 
 export function providerInfo() {
-  const configured = PROVIDER === 'ollama' ? true : Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
+  const configured = PROVIDER === 'ollama' || PROVIDER === 'stub' ? true : Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
   return { provider: PROVIDER, model: MODEL, effort: PROVIDER === 'anthropic' ? EFFORT : null, configured, price_per_mtok: PRICES[MODEL] || null };
 }
 
@@ -45,6 +45,7 @@ export function providerInfo() {
  */
 export async function completeJSON({ system, user, schema }) {
   if (PROVIDER === 'ollama') return ollamaJSON({ system, user, schema });
+  if (PROVIDER === 'stub') return stubJSON({ schema });
   return anthropicJSON({ system, user, schema });
 }
 
@@ -96,4 +97,23 @@ async function ollamaJSON({ system, user, schema }) {
   const parsed = schema.parse(JSON.parse(text));
   const usage = { input_tokens: body.prompt_eval_count || 0, output_tokens: body.eval_count || 0 };
   return { parsed, usage, model: MODEL, cost_usd: 0, stop_reason: body.done_reason, text };
+}
+
+// Заглушка ТОЛЬКО для автотестов (CQA_PROVIDER=stub): мгновенно возвращает формально корректный ответ
+// по JSON-схеме (первое допустимое значение), чтобы проверять API без реальной модели. Не для оценки.
+function fillFromSchema(js) {
+  if (js.enum) return js.enum[0];
+  if (js.anyOf) return fillFromSchema(js.anyOf.find((x) => x.type !== 'null') || js.anyOf[0]);
+  switch (js.type) {
+    case 'object': return Object.fromEntries(Object.entries(js.properties || {}).map(([k, v]) => [k, fillFromSchema(v)]));
+    case 'array': return [fillFromSchema(js.items || {})];
+    case 'string': return 'stub';
+    case 'integer': case 'number': return 1;
+    case 'boolean': return false;
+    default: return null;
+  }
+}
+async function stubJSON({ schema }) {
+  const parsed = schema.parse(fillFromSchema(z.toJSONSchema(schema)));
+  return { parsed, usage: { input_tokens: 0, output_tokens: 0 }, model: 'stub', cost_usd: 0, stop_reason: 'end_turn', text: JSON.stringify(parsed) };
 }

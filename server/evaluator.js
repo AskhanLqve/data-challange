@@ -5,6 +5,9 @@ import { computeScore, normalizeAnswer, allowedAnswers, answerLabel } from './sc
 import { db, newId } from './db.js';
 
 const RUNS = Math.max(1, Number(process.env.CQA_RUNS || 1)); // >1 — голосование нескольких прогонов
+// single — все критерии одним вызовом (сильные облачные модели, дешевле);
+// per-criterion — отдельный короткий вызов на каждый критерий (точнее для небольших локальных моделей).
+export const MODE = process.env.CQA_MODE || (PROVIDER === 'ollama' ? 'per-criterion' : 'single');
 const LANG_NAMES = { RU: 'русский', KZ: 'казахский', EN: 'английский' };
 
 /**
@@ -12,16 +15,19 @@ const LANG_NAMES = { RU: 'русский', KZ: 'казахский', EN: 'анг
  * Генерация ограничивается схемой (Ollama grammar / Claude structured outputs), поэтому модель
  * физически не может поставить, например, балл шкалы в критерий «Да/Нет».
  */
+const criterionItem = (c) => z.object({
+  // Для критериев с N/A — сначала отдельный вопрос о применимости (небольшие модели иначе путают «Нет» и N/A).
+  ...(c.na_allowed && c.type !== 'flag' ? { na_condition_met: z.boolean().describe(`Выполнено ли условие N/A: ${c.na_condition || 'критерий неприменим'}`) } : {}),
+  answer: z.enum(allowedAnswers(c)),
+  explanation: z.string(),
+  evidence: z.array(z.object({ message: z.number().int(), quote: z.string() })),
+  checked_from: z.number().int().nullable(),
+  checked_to: z.number().int().nullable(),
+}).describe(`${c.code ? c.code + '. ' : ''}${c.name}`);
+
 export function buildResultSchema(checklist) {
-  const item = (c) => z.object({
-    answer: z.enum(allowedAnswers(c)),
-    explanation: z.string(),
-    evidence: z.array(z.object({ message: z.number().int(), quote: z.string() })),
-    checked_from: z.number().int().nullable(),
-    checked_to: z.number().int().nullable(),
-  }).describe(`${c.code ? c.code + '. ' : ''}${c.name}`);
   return z.object({
-    criteria: z.object(Object.fromEntries(checklist.criteria.map((c) => [c.id, item(c)]))),
+    criteria: z.object(Object.fromEntries(checklist.criteria.map((c) => [c.id, criterionItem(c)]))),
     summary: z.string(),
   });
 }
@@ -69,7 +75,39 @@ export function buildSystemPrompt(checklist) {
   ].join('\n');
 }
 
-export function buildUserPrompt(conv) {
+/** Системный промпт для режима per-criterion: общие правила + формат ответа на ОДИН критерий. */
+export function buildCriterionSystemPrompt(checklist) {
+  return [
+    'Ты — эксперт отдела контроля качества (QA) брокерской компании. Ты оцениваешь работу ОПЕРАТОРА в диалоге с клиентом по ОДНОМУ критерию чек-листа, который указан в конце сообщения.',
+    'Диалоги бывают на русском, казахском и английском. Объяснение пиши на русском, цитаты — на языке оригинала.',
+    '',
+    '## Общие правила',
+    checklist.general_rules || '',
+    '',
+    '## Как отвечать',
+    '- Сначала найди в транскрипте реплики, относящиеся к критерию, и внимательно прочитай их. Затем сравни с условием критерия.',
+    '- Если у критерия есть поле na_condition_met — сначала реши только его: выполнено ли условие N/A. Если да — answer = "na".',
+    '- «Нет» ставь только тогда, когда можешь указать конкретную реплику оператора, где он нарушил условие, или место, где нужное действие было пропущено. Если нарушения не видно — это «Да» (или верхняя ступень шкалы).',
+    '- answer — строго одно из допустимых значений критерия.',
+    '- explanation — 1–2 предложения: что именно сделал или не сделал оператор и в какой реплике.',
+    '- evidence — номера реплик (#N) и точная короткая цитата из них. Если действие пропущено — реплика, где оно ожидалось.',
+    '- checked_from / checked_to — проверенный диапазон реплик; обязателен для «Нет» и N/A, иначе null.',
+    '- Не выдумывай реплики и не приписывай оператору того, чего нет в тексте.',
+  ].join('\n');
+}
+
+export function buildCriterionUserPrompt(conv, c) {
+  return [
+    buildUserPrompt(conv, { withTask: false }),
+    '',
+    '## Критерий для оценки',
+    criterionBlock(c),
+    '',
+    `Оцени работу оператора только по критерию «${c.name}».`,
+  ].join('\n');
+}
+
+export function buildUserPrompt(conv, { withTask = true } = {}) {
   const t = conv.transcript;
   const firstOp = t.find((m) => m.speaker === 'operator');
   const lastOp = [...t].reverse().find((m) => m.speaker === 'operator');
@@ -95,8 +133,7 @@ export function buildUserPrompt(conv) {
     '<transcript>',
     ...lines,
     '</transcript>',
-    '',
-    'Оцени работу оператора по каждому критерию чек-листа.',
+    ...(withTask ? ['', 'Оцени работу оператора по каждому критерию чек-листа.'] : []),
   ].join('\n');
 }
 
@@ -109,7 +146,9 @@ export function validateRun(checklist, conv, parsed) {
   for (const c of checklist.criteria) {
     const r = byId.get(c.id);
     if (!r) { out[c.id] = { answer: null, missing: true }; continue; }
-    const { answer, warning } = normalizeAnswer(c, r.answer);
+    let { answer, warning } = normalizeAnswer(c, r.answer);
+    if (r.na_condition_met === true && c.na_allowed && answer !== 'na') { answer = 'na'; warning = undefined; }
+    if (r.na_condition_met === false && answer === 'na') warning = 'Модель отметила, что условие N/A не выполнено, но поставила N/A';
     const evidence = (r.evidence || [])
       .filter((e) => e.message >= 1 && e.message <= maxIdx)
       .map((e) => ({ message: e.message, quote: e.quote, speaker: conv.transcript[e.message - 1].speaker, timestamp: conv.transcript[e.message - 1].timestamp, offset_sec: conv.transcript[e.message - 1].offset_sec }));
@@ -141,12 +180,29 @@ export function vote(checklist, runs) {
   return result;
 }
 
-export async function evaluateConversation(conv, checklist, { runs = RUNS } = {}) {
-  const system = buildSystemPrompt(checklist);
-  const user = buildUserPrompt(conv);
+/** Один прогон оценки в режиме per-criterion: последовательные вызовы (общий префикс промпта кэшируется моделью). */
+async function runPerCriterion(conv, checklist) {
+  const system = buildCriterionSystemPrompt(checklist);
+  const criteria = {}; const texts = []; const usage = {}; let cost = 0; let model;
+  for (const c of checklist.criteria) {
+    const r = await completeJSON({ system, user: buildCriterionUserPrompt(conv, c), schema: criterionItem(c) });
+    criteria[c.id] = r.parsed;
+    texts.push(`[${c.id}] ${r.text}`);
+    for (const [k, v] of Object.entries(r.usage || {})) if (typeof v === 'number') usage[k] = (usage[k] || 0) + v;
+    cost += r.cost_usd; model = r.model;
+  }
+  return { parsed: { criteria, summary: '' }, usage, cost_usd: cost, text: texts.join('\n'), model };
+}
+
+export async function evaluateConversation(conv, checklist, { runs = RUNS, mode = MODE } = {}) {
+  const perCriterion = mode === 'per-criterion';
+  const system = perCriterion ? buildCriterionSystemPrompt(checklist) : buildSystemPrompt(checklist);
+  const user = perCriterion ? checklist.criteria.map((c) => buildCriterionUserPrompt(conv, c)).join('\n\n=====\n\n') : buildUserPrompt(conv);
   const started = Date.now();
   const schema = buildResultSchema(checklist);
-  const calls = await Promise.all(Array.from({ length: runs }, () => completeJSON({ system, user, schema })));
+  const calls = perCriterion
+    ? await (async () => { const out = []; for (let i = 0; i < runs; i++) out.push(await runPerCriterion(conv, checklist)); return out; })()
+    : await Promise.all(Array.from({ length: runs }, () => completeJSON({ system, user, schema })));
   const validated = calls.map((r) => validateRun(checklist, conv, r.parsed));
   const merged = runs > 1 ? vote(checklist, validated) : Object.fromEntries(Object.entries(validated[0]).map(([k, v]) => [k, { ...v, agreement: 1 }]));
 
@@ -176,7 +232,7 @@ export async function evaluateConversation(conv, checklist, { runs = RUNS } = {}
     checklist_version: checklist.version,
     checklist, // снимок — результат не меняется при последующей правке чек-листа
     created_at: new Date().toISOString(),
-    provider: PROVIDER, model: calls[0].model || MODEL, effort: PROVIDER === 'anthropic' ? EFFORT : null, runs,
+    provider: PROVIDER, model: calls[0].model || MODEL, effort: PROVIDER === 'anthropic' ? EFFORT : null, runs, mode,
     duration_ms: Date.now() - started,
     usage, cost_usd: Math.round(calls.reduce((s, r) => s + r.cost_usd, 0) * 10000) / 10000,
     summary: calls[0].parsed.summary,
