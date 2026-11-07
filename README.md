@@ -9,9 +9,9 @@
 **1. Модель оценки** — выберите одну:
 
 ```bash
-# Вариант А — локально и бесплатно (так работает демо): Ollama + Qwen 2.5 7B
+# Вариант А — локально и бесплатно (так работает демо): Ollama + Qwen3 8B
 curl -fsSL https://ollama.com/install.sh | sh
-ollama pull qwen2.5:7b-instruct
+ollama pull qwen3:8b
 
 # Вариант Б — облако: ключ Anthropic (Claude Opus 5.5), впишите его в .env
 ```
@@ -20,7 +20,7 @@ ollama pull qwen2.5:7b-instruct
 
 ```bash
 pnpm install
-cp .env.example .env          # для Ollama: CQA_PROVIDER=ollama, CQA_MODEL=qwen2.5:7b-instruct
+cp .env.example .env          # для Ollama: CQA_PROVIDER=ollama, CQA_MODEL=qwen3:8b
 pnpm start                    # лендинг: http://localhost:3000, приложение: http://localhost:3000/app.html
 ```
 
@@ -133,7 +133,17 @@ pnpm results --group <group_id_контроля> --set prod --run --push
 | Режим | Настройка | Примечание |
 |---|---|---|
 | Облако (по умолчанию) | `CQA_PROVIDER=anthropic`, `CQA_MODEL=claude-opus-5-5`, `CQA_EFFORT=high` | Claude Opus 5.5: $4 за 1M входных токенов, $20 за 1M выходных. Системный промпт кэшируется. |
-| Локальная модель | `CQA_PROVIDER=ollama`, `CQA_MODEL=qwen2.5:7b-instruct`, `OLLAMA_NUM_CTX=12288`, `CQA_CONCURRENCY=1` | Через Ollama, бесплатно. На RTX 4050 (6 ГБ) — около 60–80 с на диалог. Точность ниже, особенно на KZ. |
+| Локальная модель | `CQA_PROVIDER=ollama`, `CQA_MODEL=qwen3:8b`, `OLLAMA_THINK=false`, `OLLAMA_NUM_CTX=12288`, `CQA_CONCURRENCY=1` | Через Ollama, бесплатно. На RTX 4050 (6 ГБ) — около 100 с на диалог. |
+| Локальная, быстрее | `CQA_MODEL=qwen2.5:7b-instruct` | около 55 с на диалог, точность ниже (см. сравнение ниже). |
+
+**Сравнение локальных моделей** на одних и тех же 10 размеченных диалогах (`pnpm eval`, одинаковые правила):
+
+| Модель | Совпадение с экспертом | Без спорных | Ошибка итога | Время на диалог |
+|---|---|---|---|---|
+| qwen3:8b (по умолчанию) | **73,8%** | **82,0%** | 20,6 | ~100 с |
+| qwen2.5:7b-instruct | 63,7% | 72,1% | 21,4 | ~55 с |
+
+Облачная модель не замерена: в прототипе нет ключа API. С ключом достаточно `pnpm eval --run --set dev`, и строка появится в «Аналитике».
 
 **Примерная стоимость одной оценки** (1 вызов модели на диалог):
 - входные токены: около 3–4 тыс. на чек-лист и правила (кэшируются) плюс 1–3 тыс. на транскрипт чата, до 6 тыс. на звонок;

@@ -7,6 +7,8 @@ export const PROVIDER = (process.env.CQA_PROVIDER || 'anthropic').toLowerCase();
 export const MODEL = process.env.CQA_MODEL || (PROVIDER === 'ollama' ? 'qwen2.5:7b-instruct' : PROVIDER === 'stub' ? 'stub' : 'claude-opus-5-5');
 export const EFFORT = process.env.CQA_EFFORT || 'high';
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
+// qwen3 по умолчанию рассуждает перед ответом — для оценки по схеме это лишние минуты, поэтому выключаем, если не задано явно
+const THINK = process.env.OLLAMA_THINK ? process.env.OLLAMA_THINK === 'true' : /^qwen3/.test(process.env.CQA_MODEL || '') ? false : null;
 
 // $ за 1M токенов: input, output, cache read (запись в кэш ≈ 1.25× input)
 const PRICES = {
@@ -118,7 +120,7 @@ async function ollamaJSON({ system, user, schema, temperature = 0, seed = 42 }) 
       // temperature 0 + seed — воспроизводимая оценка; ответ одного критерия короткий, длину ограничиваем
       options: { temperature, seed, num_ctx: Number(process.env.OLLAMA_NUM_CTX || 12288), num_predict: Number(process.env.OLLAMA_NUM_PREDICT || 2048) },
       keep_alive: process.env.OLLAMA_KEEP_ALIVE || '30m', // модель остаётся в памяти между диалогами
-      ...(process.env.OLLAMA_THINK ? { think: process.env.OLLAMA_THINK === 'true' } : {}), // для моделей с режимом рассуждения (qwen3)
+      ...(THINK != null ? { think: THINK } : {}), // для моделей с режимом рассуждения (qwen3): по умолчанию выключен
       messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
     }),
     signal: AbortSignal.timeout(15 * 60_000),
@@ -161,7 +163,7 @@ export async function completeText({ system, messages }) {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         model: MODEL, stream: false, keep_alive: process.env.OLLAMA_KEEP_ALIVE || '30m',
-        ...(process.env.OLLAMA_THINK ? { think: process.env.OLLAMA_THINK === 'true' } : {}),
+        ...(THINK != null ? { think: THINK } : {}),
         options: { temperature: 0.2, seed: 42, num_ctx: Number(process.env.OLLAMA_NUM_CTX || 12288), num_predict: 1024 },
         messages: [{ role: 'system', content: system }, ...messages],
       }),
