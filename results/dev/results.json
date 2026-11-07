@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "team_name": "CQA",
+  "team_name": "1DEA",
   "model": {
     "mode": "local",
     "name": "qwen3:8b"
