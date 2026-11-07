@@ -76,7 +76,7 @@
   .hero .wrap { position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); gap: 3rem; align-items: center; }
   .pill { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem; color: var(--ink-2); border: 1px solid var(--line); background: var(--surface); padding: 0.3rem 0.8rem; border-radius: 999px; }
   .pill i { width: 0.4rem; height: 0.4rem; border-radius: 50%; background: var(--blue); }
-  .hero h1 { margin-top: 1.5rem; font-size: clamp(2.5rem, 4.6vw, 4.3rem); line-height: 0.98; letter-spacing: -0.05em; overflow-wrap: anywhere; }
+  .hero h1 { margin-top: 1.5rem; font-size: clamp(2.25rem, 4.1vw, 3.6rem); line-height: 0.98; letter-spacing: -0.05em; overflow-wrap: anywhere; }
   .hero .lede { margin-top: 1.75rem; font-size: 1.1875rem; line-height: 1.6; color: var(--ink-2); max-width: 34rem; }
   .hero .actions { display: flex; gap: 0.75rem; margin-top: 2.25rem; flex-wrap: wrap; }
   .facts { display: flex; flex-wrap: wrap; gap: 0.6rem 1.5rem; margin-top: 2rem; font-size: 0.8125rem; color: var(--ink-2); }
@@ -84,7 +84,7 @@
   .facts svg { width: 1rem; height: 1rem; color: var(--blue); }
 
   /* «устройство»: карточка оценки с всплывающими чипами */
-  .device-wrap { position: relative; display: grid; place-items: center; min-height: 32rem; }
+  .device-wrap { position: relative; display: grid; place-items: center; min-height: 32rem; padding: 3.75rem 0; }
   /* «Истории»: знакомство с продуктом за 30 секунд, как сторис в мессенджерах */
   .stories { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 1rem; background: radial-gradient(circle at 50% 40%, rgba(19,173,100,.35), rgba(12,20,17,.92) 60%); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
   .stories[hidden] { display: none; }
@@ -114,6 +114,7 @@
     [data-tilt] { transition: transform .25s cubic-bezier(0.23, 1, 0.32, 1), box-shadow .25s; transform-style: preserve-3d; will-change: transform; }
     [data-tilt]:hover { box-shadow: 0 24px 50px rgba(12,20,17,.12); }
   }
+  @media (max-width: 560px) { .chip.c2 { display: none; } }
   #wave3d { position: absolute; right: 0; top: 0; width: 50%; height: 100%; z-index: 0; pointer-events: none; }
   @media (max-width: 900px) { #wave3d { display: none; } }
   .device-wrap > .device { position: relative; z-index: 1; }
@@ -135,7 +136,8 @@
   .chip { position: absolute; display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem; font-weight: 500; color: var(--ink);
     background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(10px); border: 1px solid var(--line); padding: 0.55rem 0.9rem; border-radius: 999px; box-shadow: var(--shadow); }
   .chip svg { width: 1rem; height: 1rem; color: var(--blue); flex: none; }
-  .chip.c1 { top: 12%; left: -2%; } .chip.c2 { top: 46%; right: -4%; } .chip.c3 { bottom: 10%; left: 4%; }
+  /* чипы — в полях над и под карточкой, чтобы не закрывать её строки */
+  .chip.c1 { top: 0; left: -2%; } .chip.c2 { top: 0.25rem; right: -4%; } .chip.c3 { bottom: 0; left: 6%; }
   .chip q { quotes: "«" "»"; color: var(--ink-2); }
 
   /* бегущая строка */
@@ -170,6 +172,10 @@
   .tag { font-size: 0.75rem; font-weight: 600; padding: 0.15rem 0.6rem; border-radius: 999px; white-space: nowrap; }
   .tag.y { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
   .tag.n { background: color-mix(in srgb, var(--bad) 14%, transparent); color: var(--bad); }
+  .tag.p { background: color-mix(in srgb, #ffa700 18%, transparent); color: #9a6200; }
+  .verdict .tag, .appeal-line .tag { align-self: center; }
+  :root[data-theme="dark"] .tag.p { color: #ffa700; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tag.p { color: #ffa700; } }
   .appeal-line { display: grid; grid-template-columns: auto 1fr auto; gap: 0.8rem; align-items: center; padding: 0.8rem 0.9rem; border-radius: 0.9rem; border: 1px solid var(--line); font-size: 0.875rem; }
   .appeal-line + .appeal-line { margin-top: 0.5rem; }
   .appeal-line .dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--violet); }
@@ -280,7 +286,7 @@
     <div class="wrap">
       <div>
         <span class="pill"><i></i>ИИ-контроль качества для поддержки клиентов</span>
-        <h1 class="two-tone">Каждый диалог.<br><span class="blue">С доказательством.</span></h1>
+        <h1 class="two-tone">Каждый диалог.<br><span class="blue">С&nbsp;доказательством.</span></h1>
         <p class="lede">CQA оценивает работу операторов в чатах и звонках по вашему чек-листу. У каждого балла — объяснение и реплика, на которой он основан. Спорную оценку можно оспорить, итог пересчитается.</p>
         <div class="actions">
           <a class="btn primary big" data-app-link href="app.html">Открыть приложение
@@ -352,13 +358,13 @@
 
       <div class="flow">
         <div class="panel">
-          <div class="appeal-line"><span class="dot"></span><span><b>06 Управление диалогом</b><br><span class="muted">«Ответы были ясными, сбоя не было (#12)»</span></span><span class="tag n">7 из 10</span></div>
+          <div class="appeal-line"><span class="dot"></span><span><b>06 Управление диалогом</b><br><span class="muted">«Ответы были ясными, сбоя не было (#12)»</span></span><span class="tag p">7 из 10</span></div>
           <div class="appeal-line done"><span class="dot"></span><span><b>Решение проверяющего</b><br><span class="muted">Оценка изменена: сбоя нет</span></span><span class="tag y">10 из 10</span></div>
           <div class="verdict"><span><b>Итог диалога</b><br><span class="muted">исходная оценка ИИ сохранена</span></span><span style="font-weight:650;font-size:1.25rem">85,38 → 92,31</span></div>
         </div>
         <div>
           <span class="label">Работа с результатом</span>
-          <h3>Спорная оценка — не тупик.</h3>
+          <h3>Спорная оценка&nbsp;— не&nbsp;тупик.</h3>
           <p>Оператор оспаривает критерий с комментарием. Проверяющий видит оценку, обоснование ИИ и фрагмент диалога, подтверждает или меняет её с причиной.</p>
           <ul class="checks">
             <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Переход к реплике и к моменту записи звонка</li>
@@ -444,7 +450,7 @@
         <div class="panel model">
           <span class="label">В облаке</span>
           <h3>Claude Opus 5.5</h3>
-          <dl><dt>Стоимость</dt><dd>около $0,05–0,10 за диалог</dd><dt>Скорость</dt><dd>десятки секунд</dd><dt>Точность</dt><dd>не замерена: в прототипе нет ключа API</dd><dt>Режим</dt><dd>все критерии одним вызовом</dd></dl>
+          <dl><dt>Стоимость</dt><dd>≈ $0,05–0,10 за диалог по тарифу (расчёт, не замер)</dd><dt>Скорость</dt><dd>не замерена</dd><dt>Точность</dt><dd>не замерена: в прототипе нет ключа API</dd><dt>Режим</dt><dd>все критерии одним вызовом</dd></dl>
         </div>
       </div>
       <p class="muted" id="model-now" style="margin-top:1rem;font-size:.875rem"></p>
@@ -668,7 +674,6 @@
       setPaused(false); render(); if (window.CQAStory3D) window.CQAStory3D.run(true);
       cancelAnimationFrame(raf); t0 = performance.now(); raf = requestAnimationFrame(tick);
       el('storiesClose').focus();
-      try { localStorage.setItem('cqa.stories', '1'); } catch (e) {}
     }
     function close() {
       root.hidden = true; document.body.classList.remove('stories-open'); document.body.style.overflow = '';
@@ -692,9 +697,9 @@
       }
     });
     document.querySelectorAll('[data-stories]').forEach(function (b) { b.addEventListener('click', open); });
-    // первый визит — истории открываются сами (как на tau-together / uniq); ?stories=0 отключает
-    var seen = false; try { seen = localStorage.getItem('cqa.stories') === '1'; } catch (e) {}
-    if (!seen && new URLSearchParams(location.search).get('stories') !== '0') window.addEventListener('load', function () { setTimeout(open, 600); });
+    // истории открываются только по кнопке (всплывающее окно при входе мешает тому, кто пришёл посмотреть продукт);
+    // ссылка с ?stories=1 открывает их сразу — например, чтобы поделиться
+    if (new URLSearchParams(location.search).get('stories') === '1') window.addEventListener('load', function () { setTimeout(open, 300); });
 
     // наклон карточек за курсором
     if (matchMedia('(hover: hover) and (pointer: fine)').matches && !matchMedia('(prefers-reduced-motion: reduce)').matches) {

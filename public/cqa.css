@@ -271,11 +271,13 @@ cqa-app .q-row:last-child { border-bottom: 0; }
 cqa-app .q-row:hover { background: var(--bg); }
 cqa-app .q-ico { width: 1.5rem; height: 1.5rem; border-radius: 0.4rem; display: grid; place-items: center; }
 cqa-app .q-ico svg { width: 0.9rem; height: 0.9rem; }
-cqa-app .q-row.ok .q-ico, cqa-app .q-row.part .q-ico { background: var(--ok-soft); color: var(--ok); }
+cqa-app .q-row.ok .q-ico { background: var(--ok-soft); color: var(--ok); }
+cqa-app .q-row.part .q-ico { background: var(--warn-soft); color: var(--warn); }
 cqa-app .q-row.no .q-ico { background: #fff1dc; color: #c77700; }
 cqa-app .q-row.na .q-ico { background: var(--na-soft); color: var(--na); }
 cqa-app .q-pts { font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
-cqa-app .q-row.ok .q-pts b, cqa-app .q-row.part .q-pts b { color: var(--ok); }
+cqa-app .q-row.ok .q-pts b { color: var(--ok); }
+cqa-app .q-row.part .q-pts b { color: var(--warn); }
 cqa-app .q-row.no .q-pts b { color: #c77700; }
 cqa-app .gross { display: flex; gap: 0.6rem; align-items: flex-start; margin-top: 1rem; padding: 0.75rem 0.9rem; border-radius: 0.8rem; background: var(--bad-soft); color: var(--ink); }
 cqa-app .gross svg { width: 1.2rem; height: 1.2rem; color: var(--bad); flex: none; margin-top: 0.1rem; }
@@ -411,3 +413,7 @@ cqa-app .compare .kpi { box-shadow: none; background: var(--bg); border-color: t
 }
 @keyframes ring-draw { from { stroke-dasharray: 0 400; } }
 @keyframes ring-pop { from { opacity: 0; transform: translateY(6px); } }
+cqa-app .conv-id { white-space: nowrap; }
+cqa-app .chan { display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
+cqa-app .chan-ico { display: inline-grid; width: 1rem; height: 1rem; color: var(--muted); }
+cqa-app .chan-ico svg { width: 1rem; height: 1rem; }

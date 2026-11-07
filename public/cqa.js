@@ -33,6 +33,8 @@
     bars: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="12" width="4" height="8" rx="1"/><rect x="10" y="7" width="4" height="13" rx="1"/><rect x="16" y="3" width="4" height="17" rx="1"/></svg>',
     play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
     pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>',
+    part: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>',
+    phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>',
     ok: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
     no: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>',
     na: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 12h12"/></svg>',
@@ -289,15 +291,15 @@
         const box = h('input', { type: 'checkbox', checked: sel.has(c.conversation_id), onclick: (e) => { e.stopPropagation(); e.target.checked ? sel.add(c.conversation_id) : sel.delete(c.conversation_id); } });
         tbody.append(h('tr', { onclick: () => this.go(`#/c/${encodeURIComponent(c.conversation_id)}`) },
           h('td', { onclick: (e) => e.stopPropagation() }, box),
-          h('td', {}, h('b', {}, c.conversation_id), h('div', { class: 'small muted' }, c.title || c.group_id)),
+          h('td', {}, h('b', { class: 'conv-id' }, c.conversation_id), h('div', { class: 'small muted' }, c.title || c.group_id)),
           h('td', {}, h('span', { class: 'tag blue' }, LANG[c.language] || c.language)),
-          h('td', {}, c.channel === 'voice call' ? '📞 звонок' : '💬 чат', h('div', { class: 'small muted' }, `${c.messages} реплик`)),
+          h('td', {}, h('span', { class: 'chan' }, h('span', { class: 'chan-ico', html: c.channel === 'voice call' ? ICONS.phone : ICONS.chat }), c.channel === 'voice call' ? 'звонок' : 'чат'), h('div', { class: 'small muted' }, `${c.messages} реплик`)),
           h('td', { class: 'small', style: { maxWidth: '420px' } }, c.preview),
           h('td', {}, ev ? h('div', {},
             h('span', { class: 'score' }, fmt(ev.total)),
             ev.original_total !== ev.total ? h('span', { class: 'small muted' }, ` (ИИ: ${fmt(ev.original_total)})`) : null,
             ev.gross ? h('div', {}, h('span', { class: 'tag no' }, 'грубая ошибка')) : null,
-            h('div', { class: 'small muted' }, `${ev.checklist_name} v${ev.checklist_version}`)) : h('span', { class: 'muted small' }, 'не оценён')),
+            h('div', { class: 'small muted', title: ev.checklist_name }, `чек-лист v${ev.checklist_version}`)) : h('span', { class: 'muted small' }, 'не оценён')),
           h('td', {}, ev ? (ev.needs_review
             ? h('span', { class: 'tag warn', title: ev.review_reasons.join('\n') }, 'нужна проверка')
             : h('span', { class: 'tag ' + (ev.status === 'appealed' ? 'warn' : ev.status === 'reviewed' ? 'yes' : '') }, { evaluated: 'оценён', appealed: 'апелляция', reviewed: 'пересмотрен', manual: 'ручная' }[ev.status] || ev.status)) : null),
@@ -569,7 +571,7 @@
           const p = r.final; const na = r.final_answer === 'na';
           const state2 = na ? 'na' : p.points >= p.max_points - 0.001 ? 'ok' : p.points > 0 ? 'part' : 'no';
           list.append(h('button', { class: `q-row ${state2}`, type: 'button', title: r.ai.explanation, onclick: () => { focusCrit = { c, r }; renderWhy(); } },
-            h('span', { class: 'q-ico', html: ICONS[state2 === 'no' ? 'no' : state2 === 'na' ? 'na' : 'ok'] }),
+            h('span', { class: 'q-ico', html: ICONS[state2], title: { ok: 'полный балл', part: 'часть баллов', no: 'баллы не начислены', na: 'неприменимо' }[state2] }),
             h('span', { class: 'q-name' }, c.name, r.ai.doubts?.length ? h('span', { class: 'q-doubt', title: r.ai.doubts.join('\n') }, ' · проверить') : null),
             h('span', { class: 'q-pts' }, na ? 'N/A' : h('span', {}, h('b', {}, fmt(p.points, 1)), ` / ${fmt(p.max_points, 1)}`))));
         }
@@ -908,7 +910,7 @@
       const log = h('div', { class: 'assist-log', 'aria-live': 'polite' }, h('div', { class: 'assist-hint muted small' }, 'Спросите о диалоге или оценке. Ответ опирается на транскрипт, оценку и чек-лист.'));
       const input = h('textarea', { rows: 2, placeholder: 'Например: что оператору нужно было сделать иначе?', onkeydown: (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(); } } });
       const sendBtn = h('button', { class: 'btn primary', type: 'button' }, 'Спросить');
-      const micBtn = h('button', { class: 'btn', type: 'button', title: 'Задать вопрос голосом', 'aria-label': 'Задать вопрос голосом' }, '🎙 Голосом');
+      const micBtn = h('button', { class: 'btn', type: 'button', title: 'Задать вопрос голосом', 'aria-label': 'Задать вопрос голосом' }, 'Голосом');
       const bubble = (role, text) => { const b = h('div', { class: `assist-msg ${role}` }, text); log.append(b); log.scrollTop = log.scrollHeight; return b; };
       const ask = async (q = input.value.trim()) => {
         if (!q) return;
@@ -932,7 +934,7 @@
           const chunks = []; rec = new MediaRecorder(stream);
           rec.ondataavailable = (e) => chunks.push(e.data);
           rec.onstop = async () => {
-            stream.getTracks().forEach((t) => t.stop()); micBtn.textContent = '🎙 Голосом'; micBtn.classList.remove('rec');
+            stream.getTracks().forEach((t) => t.stop()); micBtn.textContent = 'Голосом'; micBtn.classList.remove('rec');
             micBtn.disabled = true; input.placeholder = 'Распознаю вопрос…';
             try {
               const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
@@ -1015,7 +1017,7 @@
             changed ? h('div', { class: 'small' }, 'исходная ИИ: ', h('s', {}, fmt(os.total))) : null),
           h('div', { class: 'stack' },
             h('div', { class: 'row' },
-              fs.gross_error ? h('span', { class: 'tag no' }, '⚠ Грубая ошибка: ' + fs.gross_errors.map((g) => g.name).join(', ')) : h('span', { class: 'tag yes' }, 'Грубых ошибок нет'),
+              fs.gross_error ? h('span', { class: 'tag no' }, 'Грубая ошибка: ' + fs.gross_errors.map((g) => g.name).join(', ')) : h('span', { class: 'tag yes' }, 'Грубых ошибок нет'),
               ev.status === 'appealed' ? h('span', { class: 'tag warn' }, 'на апелляции') : ev.status === 'reviewed' ? h('span', { class: 'tag yes' }, 'пересмотрено') : null,
               fs.total == null ? h('span', { class: 'tag warn' }, 'итог не рассчитывается — нет применимых критериев') : null,
               fs.redistribution_factor && fs.redistribution_factor !== 1 ? h('span', { class: 'small muted', title: 'Веса критериев с N/A перераспределены между применимыми' }, `веса ×${fmt(fs.redistribution_factor, 3)} (N/A)`) : null),
