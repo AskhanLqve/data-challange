@@ -62,7 +62,7 @@
   .nav nav a:hover { color: var(--ink); }
   .icon-btn { width: 2.5rem; height: 2.5rem; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--ink); display: grid; place-items: center; cursor: pointer; }
   .icon-btn svg { width: 1.1rem; height: 1.1rem; }
-  .btn { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 2.75rem; padding: 0 1.4rem; border-radius: 999px; font: 600 0.9375rem/1 inherit; text-decoration: none; border: 1px solid var(--line); background: var(--surface); color: var(--ink); white-space: nowrap; transition: background-color .15s, transform .15s; }
+  .btn { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 2.75rem; padding: 0 1.4rem; border-radius: 999px; font-family: inherit; font-size: inherit; font-weight: 600; line-height: 1; cursor: pointer; text-decoration: none; border: 1px solid var(--line); background: var(--surface); color: var(--ink); white-space: nowrap; transition: background-color .15s, transform .15s; }
   .btn svg { width: 1rem; height: 1rem; }
   .btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
   .btn.primary:hover { background: var(--blue-hover); }
@@ -85,6 +85,35 @@
 
   /* «устройство»: карточка оценки с всплывающими чипами */
   .device-wrap { position: relative; display: grid; place-items: center; min-height: 32rem; }
+  /* «Истории»: знакомство с продуктом за 30 секунд, как сторис в мессенджерах */
+  .stories { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 1rem; background: radial-gradient(circle at 50% 40%, rgba(19,173,100,.35), rgba(12,20,17,.92) 60%); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  .stories[hidden] { display: none; }
+  .stories-card { position: relative; width: min(26rem, 100%); height: min(46rem, calc(100dvh - 2rem)); border-radius: 2rem; overflow: hidden; color: #fff; display: flex; flex-direction: column; box-shadow: 0 30px 80px rgba(0,0,0,.45); background: var(--story-bg, linear-gradient(160deg, #00b323, #13ad64 55%, #4f8ff7)); transition: background .4s; }
+  .stories-bars { display: flex; gap: 6px; padding: 14px 16px 0; position: relative; z-index: 3; }
+  .stories-bars span { flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,.35); overflow: hidden; }
+  .stories-bars i { display: block; height: 100%; width: 0; background: #fff; }
+  .stories-top { display: flex; align-items: center; gap: 0.5rem; padding: 14px 16px 0; position: relative; z-index: 3; }
+  .stories-brand { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; margin-right: auto; }
+  .stories-brand svg { width: 2rem; height: 2rem; }
+  .stories-icon { width: 2.75rem; height: 2.75rem; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.6); background: rgba(12,20,17,.35); color: #fff; display: grid; place-items: center; cursor: pointer; }
+  .stories-icon svg { width: 1.1rem; height: 1.1rem; }
+  .stories-icon:focus-visible, .stories-nav:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+  #story3d { flex: 1; width: 100%; min-height: 0; display: block; }
+  .stories-sticker { position: absolute; left: 16px; top: 42%; z-index: 2; background: #fff; color: #0c1411; font-size: 0.875rem; font-weight: 600; padding: 0.45rem 0.8rem; border-radius: 999px; box-shadow: 0 8px 20px rgba(0,0,0,.18); }
+  .stories-sticker:empty { display: none; }
+  .stories-caption { position: relative; z-index: 3; margin: 0 14px 14px; padding: 1.4rem 1.4rem 1.5rem; border-radius: 1.4rem; background: rgba(12,20,17,.92); display: grid; gap: 0.6rem; }
+  .stories-caption h2 { font-size: 1.75rem; line-height: 1.1; letter-spacing: -0.03em; }
+  .stories-caption p { color: #b2bcc8; line-height: 1.5; }
+  .stories-caption .stories-step { color: #00e183; font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+  .stories-caption .btn { justify-self: start; margin-top: 0.4rem; }
+  .stories-caption .btn[hidden] { display: none; }
+  .stories-nav { position: absolute; top: 5.5rem; bottom: 12rem; width: 35%; background: transparent; border: 0; cursor: pointer; z-index: 2; }
+  .stories-nav.prev { left: 0; } .stories-nav.next { right: 0; }
+  /* объёмный наклон карточек за курсором (CSS, без WebGL) */
+  @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+    [data-tilt] { transition: transform .25s cubic-bezier(0.23, 1, 0.32, 1), box-shadow .25s; transform-style: preserve-3d; will-change: transform; }
+    [data-tilt]:hover { box-shadow: 0 24px 50px rgba(12,20,17,.12); }
+  }
   #wave3d { position: absolute; right: 0; top: 0; width: 50%; height: 100%; z-index: 0; pointer-events: none; }
   @media (max-width: 900px) { #wave3d { display: none; } }
   .device-wrap > .device { position: relative; z-index: 1; }
@@ -256,7 +285,8 @@
         <div class="actions">
           <a class="btn primary big" data-app-link href="app.html">Открыть приложение
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
-          <a class="btn big" href="#calc">Как считается итог</a>
+          <button class="btn big" type="button" data-stories>
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l10-6.5z"/></svg>Как это работает · 30 с</button>
         </div>
         <div class="facts">
           <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 5h8M8 3v2M5 9c1 3 4 5 7 6M11 9c-1 3-4 5-7 6M13 21l4-9 4 9M14.5 18h5"/></svg>Қазақша, русский, English</span>
@@ -442,77 +472,119 @@
   </div>
 </main>
 
+<div class="stories" id="stories" role="dialog" aria-modal="true" aria-label="Как работает CQA" hidden>
+  <div class="stories-card" id="storiesCard">
+    <div class="stories-bars" aria-hidden="true"></div>
+    <div class="stories-top">
+      <span class="stories-brand"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#fff"/><path d="M9 16.5l4.5 4.5L23 11.5" stroke="#00b323" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>CQA</span>
+      <button class="stories-icon" type="button" id="storiesPause" aria-label="Пауза"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg></button>
+      <button class="stories-icon" type="button" id="storiesClose" aria-label="Закрыть"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <canvas id="story3d" aria-hidden="true"></canvas>
+    <p class="stories-sticker" id="storiesSticker"></p>
+    <div class="stories-caption" aria-live="polite">
+      <p class="stories-step" id="storiesStep"></p>
+      <h2 id="storiesTitle"></h2>
+      <p id="storiesText"></p>
+      <a class="btn primary" data-app-link href="app.html" id="storiesCta" hidden>Открыть приложение</a>
+    </div>
+    <button class="stories-nav prev" type="button" aria-label="Предыдущая история"></button>
+    <button class="stories-nav next" type="button" aria-label="Следующая история"></button>
+  </div>
+</div>
+
 <footer>
   <div class="wrap"><span>CQA — прототип для хакатона Freedom Broker.</span><span>Не является официальным продуктом компании.</span></div>
 </footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
 <script>
-  // 3D-сцена за карточкой: глянцевые объекты продукта (галочка, чат, щит, звезда, звонок, звук)
-  // парят вокруг карточки оценки и слегка поворачиваются за курсором. Свои модели, без чужих логотипов.
-  // Без WebGL или библиотеки — не рисуется; при «уменьшить движение» — один неподвижный кадр.
+  // 3D: глянцевые объекты продукта (галочка, чат, щит, звезда, звонок, звук) — свои модели в цветах Freedom.
+  // Один модуль на две сцены: первый экран и «истории». Без WebGL — не рисуется;
+  // при «уменьшить движение» — неподвижный кадр. Сцена не рисует, пока её не видно.
   window.addEventListener('load', function () {
-    var canvas = document.getElementById('wave3d');
-    if (!canvas || !window.THREE) return;
-    var T = window.THREE, renderer;
-    try { renderer = new T.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true }); } catch (e) { return; }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    var scene = new T.Scene();
-    var camera = new T.PerspectiveCamera(30, 1, 0.1, 100);
-    camera.position.set(0, 0, 19);
-    // свет: белый ключевой, голубой контровой и зелёный снизу — перелив зелёный → голубой на глянце
-    scene.add(new T.HemisphereLight(0x9ff3ff, 0x0b7a2a, 0.9));
-    var key = new T.DirectionalLight(0xffffff, 1.1); key.position.set(-4, 6, 8); scene.add(key);
-    var rim = new T.PointLight(0x4fb6ff, 1.4, 40); rim.position.set(-8, 2, 4); scene.add(rim);
-    var fill = new T.PointLight(0x00e183, 1.2, 40); fill.position.set(8, -4, 6); scene.add(fill);
+    if (!window.THREE) return;
+    var T = window.THREE;
+    var still = matchMedia('(prefers-reduced-motion: reduce)').matches;
     var mat = function (c) { return new T.MeshPhysicalMaterial({ color: c, metalness: 0.15, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.08 }); };
     var extrude = function (shape, depth) {
       var g = new T.ExtrudeGeometry(shape, { depth: depth || 0.45, bevelEnabled: true, bevelThickness: 0.14, bevelSize: 0.1, bevelSegments: 6, curveSegments: 24 });
       g.center(); return g;
     };
-    function check() { var s = new T.Shape(); s.moveTo(-1, 0.1); s.lineTo(-0.35, -0.6); s.lineTo(1.05, 0.85); s.lineTo(0.75, 1.15); s.lineTo(-0.35, 0); s.lineTo(-0.7, 0.4); s.closePath(); return extrude(s); }
-    function bubble() { var s = new T.Shape(), r = 0.35, w = 1.1, h = 0.8;
-      s.moveTo(-w + r, -h); s.lineTo(-0.2, -h); s.lineTo(-0.55, -h - 0.45); s.lineTo(-0.45, -h); s.lineTo(w - r, -h);
-      s.quadraticCurveTo(w, -h, w, -h + r); s.lineTo(w, h - r); s.quadraticCurveTo(w, h, w - r, h); s.lineTo(-w + r, h);
-      s.quadraticCurveTo(-w, h, -w, h - r); s.lineTo(-w, -h + r); s.quadraticCurveTo(-w, -h, -w + r, -h); return extrude(s); }
-    function shield() { var s = new T.Shape(); s.moveTo(0, 1.1); s.quadraticCurveTo(0.6, 0.9, 1, 0.9); s.quadraticCurveTo(1.05, -0.4, 0, -1.15);
-      s.quadraticCurveTo(-1.05, -0.4, -1, 0.9); s.quadraticCurveTo(-0.6, 0.9, 0, 1.1); return extrude(s); }
-    function star() { var s = new T.Shape(); for (var i = 0; i < 10; i++) { var a = Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 0.48 : 1.1; var x = Math.cos(a) * r, y = Math.sin(a) * r; if (i) s.lineTo(x, y); else s.moveTo(x, y); } s.closePath(); return extrude(s); }
-    function play() { var s = new T.Shape(); s.moveTo(-0.6, -0.85); s.lineTo(0.95, 0); s.lineTo(-0.6, 0.85); s.closePath(); return extrude(s, 0.5); }
-    function bars() { var grp = new T.Group(); [0.7, 1.4, 1, 1.7, 0.9].forEach(function (h, i) {
-      var m = new T.Mesh(new T.BoxGeometry(0.26, h, 0.32), mat(i % 2 ? 0x00e183 : 0x00b323)); m.position.x = (i - 2) * 0.4; grp.add(m); }); return grp; }
-    var items = [
-      { obj: new T.Mesh(check(), mat(0x00b323)), p: [-4.25, 2.5, 0], s: 0.72 },
-      { obj: new T.Mesh(bubble(), mat(0x13ad64)), p: [3.4, 3.0, -1], s: 0.7 },
-      { obj: new T.Mesh(shield(), mat(0x00c853)), p: [-4.4, -0.4, -0.5], s: 0.62 },
-      { obj: new T.Mesh(star(), mat(0x00e183)), p: [3.6, -0.2, 0], s: 0.62 },
-      { obj: new T.Mesh(play(), mat(0x00b323)), p: [-4.0, -3.3, 0.5], s: 0.62 },
-      { obj: bars(), p: [3.1, -3.3, 0.2], s: 0.75 }
-    ];
-    var root = new T.Group(); scene.add(root);
-    items.forEach(function (it, i) { it.obj.position.set(it.p[0], it.p[1], it.p[2]); it.obj.scale.setScalar(it.s); it.phase = i * 1.3; it.obj.rotation.set(0.25, -0.5 + i * 0.2, 0.05 * i); root.add(it.obj); });
-    var target = { x: 0, y: 0 };
-    if (matchMedia('(hover: hover) and (pointer: fine)').matches) window.addEventListener('pointermove', function (e) { target.x = (e.clientX / innerWidth - 0.5) * 0.5; target.y = (e.clientY / innerHeight - 0.5) * 0.3; });
-    function frame(t) {
-      items.forEach(function (it) {
-        it.obj.position.y = it.p[1] + Math.sin(t * 0.9 + it.phase) * 0.22;
-        it.obj.rotation.y = -0.5 + Math.sin(t * 0.5 + it.phase) * 0.45;
-        it.obj.rotation.x = 0.25 + Math.cos(t * 0.6 + it.phase) * 0.12;
-      });
-      root.rotation.y += (target.x - root.rotation.y) * 0.05;
-      root.rotation.x += (target.y - root.rotation.x) * 0.05;
-      renderer.render(scene, camera);
+    var SHAPES = {
+      check: function () { var s = new T.Shape(); s.moveTo(-1, 0.1); s.lineTo(-0.35, -0.6); s.lineTo(1.05, 0.85); s.lineTo(0.75, 1.15); s.lineTo(-0.35, 0); s.lineTo(-0.7, 0.4); s.closePath(); return new T.Mesh(extrude(s), mat(0x00b323)); },
+      bubble: function () { var s = new T.Shape(), r = 0.35, w = 1.1, h = 0.8;
+        s.moveTo(-w + r, -h); s.lineTo(-0.2, -h); s.lineTo(-0.55, -h - 0.45); s.lineTo(-0.45, -h); s.lineTo(w - r, -h);
+        s.quadraticCurveTo(w, -h, w, -h + r); s.lineTo(w, h - r); s.quadraticCurveTo(w, h, w - r, h); s.lineTo(-w + r, h);
+        s.quadraticCurveTo(-w, h, -w, h - r); s.lineTo(-w, -h + r); s.quadraticCurveTo(-w, -h, -w + r, -h); return new T.Mesh(extrude(s), mat(0x13ad64)); },
+      shield: function () { var s = new T.Shape(); s.moveTo(0, 1.1); s.quadraticCurveTo(0.6, 0.9, 1, 0.9); s.quadraticCurveTo(1.05, -0.4, 0, -1.15);
+        s.quadraticCurveTo(-1.05, -0.4, -1, 0.9); s.quadraticCurveTo(-0.6, 0.9, 0, 1.1); return new T.Mesh(extrude(s), mat(0x00c853)); },
+      star: function () { var s = new T.Shape(); for (var i = 0; i < 10; i++) { var a = Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 0.48 : 1.1; var x = Math.cos(a) * r, y = Math.sin(a) * r; if (i) s.lineTo(x, y); else s.moveTo(x, y); } s.closePath(); return new T.Mesh(extrude(s), mat(0x00e183)); },
+      play: function () { var s = new T.Shape(); s.moveTo(-0.6, -0.85); s.lineTo(0.95, 0); s.lineTo(-0.6, 0.85); s.closePath(); return new T.Mesh(extrude(s, 0.5), mat(0x00b323)); },
+      bars: function () { var grp = new T.Group(); [0.7, 1.4, 1, 1.7, 0.9].forEach(function (h, i) {
+        var m = new T.Mesh(new T.BoxGeometry(0.26, h, 0.32), mat(i % 2 ? 0x00e183 : 0x00b323)); m.position.x = (i - 2) * 0.4; grp.add(m); }); return grp; }
+    };
+    // сцена: свет с переливом зелёный → голубой, камера, цикл отрисовки только когда сцена видна
+    function stage(canvas, fov, z) {
+      var renderer;
+      try { renderer = new T.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true }); } catch (e) { return null; }
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      var scene = new T.Scene(), camera = new T.PerspectiveCamera(fov, 1, 0.1, 100);
+      camera.position.set(0, 0, z);
+      scene.add(new T.HemisphereLight(0x9ff3ff, 0x0b7a2a, 0.9));
+      var key = new T.DirectionalLight(0xffffff, 1.1); key.position.set(-4, 6, 8); scene.add(key);
+      var rim = new T.PointLight(0x4fb6ff, 1.4, 40); rim.position.set(-8, 2, 4); scene.add(rim);
+      var fill = new T.PointLight(0x00e183, 1.2, 40); fill.position.set(8, -4, 6); scene.add(fill);
+      var st = { renderer: renderer, scene: scene, camera: camera, active: true, onFrame: null };
+      st.resize = function () { var w = canvas.clientWidth, h = canvas.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); };
+      st.draw = function (t) { if (st.onFrame) st.onFrame(t); renderer.render(scene, camera); };
+      st.resize(); window.addEventListener('resize', function () { st.resize(); if (still) st.draw(1); });
+      if (!still) { var t0 = performance.now(); (function loop(now) { if (st.active && !document.hidden) st.draw((now - t0) / 1000); requestAnimationFrame(loop); })(t0); }
+      return st;
     }
-    function resize() {
-      var w = canvas.clientWidth, h = canvas.clientHeight; if (!w || !h) return;
-      renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+
+    // ---- первый экран: объекты парят вокруг карточки и поворачиваются за курсором
+    var heroCanvas = document.getElementById('wave3d');
+    var hero = heroCanvas && stage(heroCanvas, 30, 19);
+    if (hero) {
+      var items = [
+        { k: 'check', p: [-4.25, 2.5, 0], s: 0.72 }, { k: 'bubble', p: [3.4, 3.0, -1], s: 0.7 },
+        { k: 'shield', p: [-4.4, -0.4, -0.5], s: 0.62 }, { k: 'star', p: [3.6, -0.2, 0], s: 0.62 },
+        { k: 'play', p: [-4.0, -3.3, 0.5], s: 0.62 }, { k: 'bars', p: [3.1, -3.3, 0.2], s: 0.75 }
+      ];
+      var root = new T.Group(); hero.scene.add(root);
+      items.forEach(function (it, i) { it.obj = SHAPES[it.k](); it.obj.position.set(it.p[0], it.p[1], it.p[2]); it.obj.scale.setScalar(it.s); it.phase = i * 1.3; it.obj.rotation.set(0.25, -0.5 + i * 0.2, 0.05 * i); root.add(it.obj); });
+      var target = { x: 0, y: 0 };
+      if (matchMedia('(hover: hover) and (pointer: fine)').matches) window.addEventListener('pointermove', function (e) { target.x = (e.clientX / innerWidth - 0.5) * 0.5; target.y = (e.clientY / innerHeight - 0.5) * 0.3; });
+      hero.onFrame = function (t) {
+        items.forEach(function (it) {
+          it.obj.position.y = it.p[1] + Math.sin(t * 0.9 + it.phase) * 0.22;
+          it.obj.rotation.y = -0.5 + Math.sin(t * 0.5 + it.phase) * 0.45;
+          it.obj.rotation.x = 0.25 + Math.cos(t * 0.6 + it.phase) * 0.12;
+        });
+        root.rotation.y += (target.x - root.rotation.y) * 0.05;
+        root.rotation.x += (target.y - root.rotation.x) * 0.05;
+      };
+      new IntersectionObserver(function (e) { hero.active = e[0].isIntersecting && !document.body.classList.contains('stories-open'); }).observe(heroCanvas);
+      if (still) hero.draw(1);
     }
-    var still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    resize(); window.addEventListener('resize', function () { resize(); if (still) frame(1); });
-    if (still) { frame(1); return; }
-    var visible = true, start = performance.now();
-    new IntersectionObserver(function (e) { visible = e[0].isIntersecting; }).observe(canvas);
-    (function loop(now) { if (visible && !document.hidden) frame((now - start) / 1000); requestAnimationFrame(loop); })(start);
+
+    // ---- «истории»: один крупный объект на слайд, плавно вращается
+    var storyCanvas = document.getElementById('story3d');
+    var story = storyCanvas && stage(storyCanvas, 30, 9);
+    if (story) {
+      var current = null;
+      story.active = false;
+      window.CQAStory3D = {
+        show: function (kind) {
+          if (current) story.scene.remove(current);
+          current = SHAPES[kind](); current.scale.setScalar(1.25); current.rotation.set(0.3, -0.6, 0); story.scene.add(current);
+          story.resize(); story.draw(0.5);
+        },
+        run: function (on) { story.active = on && !still; if (on) story.resize(); }
+      };
+      story.onFrame = function (t) { if (!current) return; current.rotation.y = -0.6 + Math.sin(t * 0.7) * 0.7; current.position.y = Math.sin(t * 1.1) * 0.15; };
+    }
   });
 </script>
 <script>
@@ -553,6 +625,86 @@
       document.getElementById('stats-note').textContent = 'Живые данные сервиса: ' + Object.keys(langs).map(function (k) { return (lang[k] || k) + ' — ' + langs[k]; }).join(', ') + (calls ? ', из них звонков — ' + calls : '') + '.';
       if (health) document.getElementById('model-now').textContent = 'Сейчас подключена модель ' + health.model + ' (' + health.provider + ').';
     }).catch(function () { /* API недоступен — страница выложена статикой */ });
+  })();
+</script>
+<script>
+  // «Истории»: 5 слайдов по 6 с, касание слева/справа, ←/→, Esc, пауза удержанием или кнопкой.
+  (function () {
+    var STORIES = [
+      { step: 'Шаг 1 из 5', title: 'Свой чек-лист', text: 'Критерии, веса, шкалы и N/A. Сохранили — получили новую версию, без правки кода.', shape: 'check', sticker: 'Версия 4 · 8 критериев', bg: 'linear-gradient(160deg, #00b323, #13ad64 55%, #4f8ff7)' },
+      { step: 'Шаг 2 из 5', title: 'Любой диалог', text: 'Чаты и звонки на русском, казахском и английском: из API, файлом, своим текстом или голосом.', shape: 'bubble', sticker: 'Қазақша · Русский · English', bg: 'linear-gradient(160deg, #4f8ff7, #13ad64 60%, #00e183)' },
+      { step: 'Шаг 3 из 5', title: 'Оценка вживую', text: 'Критерии появляются по одному. Факты проверяет код, баллы считает код — итог воспроизводим.', shape: 'star', sticker: 'Критерий 3 из 8 · 24 с', bg: 'linear-gradient(160deg, #0c5a2a, #00b323 60%, #00e183)' },
+      { step: 'Шаг 4 из 5', title: 'У каждого балла — доказательство', text: 'Клик по объяснению ведёт к реплике в расшифровке и к месту в записи звонка.', shape: 'play', sticker: '#10 «Здравствуйте! Меня зовут Алина»', bg: 'linear-gradient(160deg, #13ad64, #4f8ff7)' },
+      { step: 'Шаг 5 из 5', title: 'Спорно? Оспорьте', text: 'Проверяющий меняет оценку с причиной, итог пересчитывается, а правило уходит в чек-лист.', shape: 'shield', sticker: 'Итог 70,59 → 85,59', bg: 'linear-gradient(160deg, #0c1411, #0c5a2a 50%, #00b323)', cta: true }
+    ];
+    var DUR = 6000;
+    var root = document.getElementById('stories'); if (!root) return;
+    var card = document.getElementById('storiesCard'), bars = root.querySelector('.stories-bars');
+    var el = function (id) { return document.getElementById(id); };
+    var idx = 0, t0 = 0, elapsed = 0, paused = false, raf = 0, opener = null;
+    bars.innerHTML = STORIES.map(function () { return '<span><i></i></span>'; }).join('');
+    var fills = bars.querySelectorAll('i');
+    function render() {
+      var s = STORIES[idx];
+      card.style.setProperty('--story-bg', s.bg);
+      el('storiesStep').textContent = s.step; el('storiesTitle').textContent = s.title; el('storiesText').textContent = s.text;
+      el('storiesSticker').textContent = s.sticker; el('storiesCta').hidden = !s.cta;
+      fills.forEach(function (f, i) { f.style.width = i < idx ? '100%' : '0'; });
+      if (window.CQAStory3D) window.CQAStory3D.show(s.shape);
+      elapsed = 0; t0 = performance.now();
+    }
+    function go(d) { var n = idx + d; if (n < 0) n = 0; if (n >= STORIES.length) { close(); return; } idx = n; render(); }
+    function tick(now) {
+      if (!paused) { elapsed += now - t0; }
+      t0 = now;
+      fills[idx].style.width = Math.min(100, elapsed / DUR * 100) + '%';
+      if (elapsed >= DUR && !STORIES[idx].cta) go(1);
+      raf = requestAnimationFrame(tick);
+    }
+    function setPaused(p) { paused = p; el('storiesPause').setAttribute('aria-label', p ? 'Продолжить' : 'Пауза');
+      el('storiesPause').innerHTML = p ? '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l10-6.5z"/></svg>' : '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>'; }
+    function open() {
+      opener = document.activeElement; idx = 0; root.hidden = false; document.body.classList.add('stories-open'); document.body.style.overflow = 'hidden';
+      setPaused(false); render(); if (window.CQAStory3D) window.CQAStory3D.run(true);
+      cancelAnimationFrame(raf); t0 = performance.now(); raf = requestAnimationFrame(tick);
+      el('storiesClose').focus();
+      try { localStorage.setItem('cqa.stories', '1'); } catch (e) {}
+    }
+    function close() {
+      root.hidden = true; document.body.classList.remove('stories-open'); document.body.style.overflow = '';
+      cancelAnimationFrame(raf); if (window.CQAStory3D) window.CQAStory3D.run(false);
+      if (opener && opener.focus) opener.focus();
+    }
+    root.querySelector('.stories-nav.prev').addEventListener('click', function () { go(-1); });
+    root.querySelector('.stories-nav.next').addEventListener('click', function () { go(1); });
+    el('storiesClose').addEventListener('click', close);
+    el('storiesPause').addEventListener('click', function () { setPaused(!paused); });
+    root.addEventListener('click', function (e) { if (e.target === root) close(); });
+    card.addEventListener('pointerdown', function (e) { if (!e.target.closest('button,a')) setPaused(true); });
+    card.addEventListener('pointerup', function (e) { if (!e.target.closest('button,a')) setPaused(false); });
+    document.addEventListener('keydown', function (e) {
+      if (root.hidden) return;
+      if (e.key === 'Escape') close(); else if (e.key === 'ArrowRight') go(1); else if (e.key === 'ArrowLeft') go(-1);
+      else if (e.key === 'Tab') { // фокус не уходит из окна
+        var f = [].slice.call(card.querySelectorAll('button:not([hidden]),a:not([hidden])')).filter(function (x) { return x.offsetParent; });
+        if (!f.length) return; var first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); } else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    });
+    document.querySelectorAll('[data-stories]').forEach(function (b) { b.addEventListener('click', open); });
+    // первый визит — истории открываются сами (как на tau-together / uniq); ?stories=0 отключает
+    var seen = false; try { seen = localStorage.getItem('cqa.stories') === '1'; } catch (e) {}
+    if (!seen && new URLSearchParams(location.search).get('stories') !== '0') window.addEventListener('load', function () { setTimeout(open, 600); });
+
+    // наклон карточек за курсором
+    if (matchMedia('(hover: hover) and (pointer: fine)').matches && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      document.querySelectorAll('section .panel').forEach(function (c) {
+        c.setAttribute('data-tilt', '');
+        c.addEventListener('pointermove', function (e) { var r = c.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - 0.5, y = (e.clientY - r.top) / r.height - 0.5;
+          c.style.transform = 'perspective(900px) rotateX(' + (-y * 6).toFixed(2) + 'deg) rotateY(' + (x * 8).toFixed(2) + 'deg)'; });
+        c.addEventListener('pointerleave', function () { c.style.transform = ''; });
+      });
+    }
   })();
 </script>
 </body>

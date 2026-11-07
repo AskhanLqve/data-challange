@@ -404,3 +404,10 @@ cqa-app .compare { margin-bottom: 1rem; }
 cqa-app .compare .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0.75rem 0; }
 cqa-app .compare .kpi { box-shadow: none; background: var(--bg); border-color: transparent; }
 @media (max-width: 720px) { cqa-app .compare .kpis { grid-template-columns: 1fr; } }
+/* Кольцо итога прорисовывается при открытии оценки; при «уменьшить движение» — сразу */
+@media (prefers-reduced-motion: no-preference) {
+  cqa-app .ring-fg { animation: ring-draw 900ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+  cqa-app .ring-val b { animation: ring-pop 500ms 250ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+}
+@keyframes ring-draw { from { stroke-dasharray: 0 400; } }
+@keyframes ring-pop { from { opacity: 0; transform: translateY(6px); } }
