@@ -1,3 +1,5 @@
+import { detectLanguage } from './dataset.js';
+
 // Проверки кодом для фактов, которые небольшая модель путает: приветствие с именем в первом сообщении и прощание.
 // Привязаны к export_id критерия: у нового или переименованного критерия правила просто не срабатывают.
 //
@@ -24,8 +26,11 @@ const quote = (m) => ({ message: m.idx, quote: m.text.slice(0, 160) });
 function contact(conv) {
   const first = conv.transcript.find((m) => m.speaker === 'operator');
   if (!first) return null;
-  const lang = GREETING[conv.language] ? conv.language : 'RU';
-  const greet = GREETING[lang].test(first.text), intro = INTRO[lang].test(first.text);
+  // язык клиента: поле language и то, на чём клиент реально пишет (поле бывает указано неверно)
+  const clientMsgs = conv.transcript.filter((m) => m.speaker === 'client');
+  const langs = [...new Set([conv.language, clientMsgs.length ? detectLanguage(clientMsgs) : null])].filter((l) => GREETING[l]);
+  if (!langs.length) langs.push('RU');
+  const greet = langs.some((l) => GREETING[l].test(first.text)), intro = langs.some((l) => INTRO[l].test(first.text));
   const ok = greet && intro;
   const missing = [!greet && 'приветствия на языке клиента', !intro && 'представления'].filter(Boolean).join(' и ');
   return {

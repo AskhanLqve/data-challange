@@ -784,7 +784,11 @@
         body.append(h('div', { class: 'panel stack' },
           metaEl,
           h('div', { class: 'row' }, h('span', { class: 'small muted' }, 'Сценарий-пример:'),
-            h('select', { onchange: (e) => { msgs = (TEMPLATES[e.target.value] || []).map(([sp, tx, at], i) => ({ speaker: sp, text: tx, offset_sec: at ?? i * 25 })); st.title = e.target.value; draw(); } }, Object.keys(TEMPLATES).map((k) => h('option', { value: k }, k || '— выбрать —')))),
+            h('select', { onchange: (e) => { msgs = (TEMPLATES[e.target.value] || []).map(([sp, tx, at], i) => ({ speaker: sp, text: tx, offset_sec: at ?? i * 25 })); st.title = e.target.value;
+              // язык примера: правило «Установление контакта» проверяет приветствие на языке клиента
+              st.language = /^Қазақша/.test(e.target.value) ? 'KZ' : /^English/.test(e.target.value) ? 'EN' : 'RU';
+              const langSel = metaEl.querySelector('select'); if (langSel) langSel.value = st.language;
+              draw(); } }, Object.keys(TEMPLATES).map((k) => h('option', { value: k }, k || '— выбрать —')))),
           list,
           h('div', { class: 'composer' }, roleBox, input, h('button', { class: 'btn', type: 'button', onclick: add }, 'Добавить')),
           h('div', { class: 'row' }, go, h('span', { class: 'small muted' }, `Оценка по чек-листу «${cl.name}» v${cl.version}, около минуты`))));

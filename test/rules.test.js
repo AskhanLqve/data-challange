@@ -54,3 +54,7 @@ test('идентификация: системное подтверждение 
 test('контакт: английское «I am Name»', () => {
   assert.equal(ruleFor(conv('EN', ['operator', 'Hi, I am Tyler. I can see a restriction.']), contact).answer, 'yes');
 });
+
+test('контакт: язык клиента определяется по его репликам, если поле language неверное', () => {
+  assert.equal(ruleFor(conv('RU', ['client', 'Тарифімді қайдан көремін?'], ['operator', 'Сәлеметсіз бе, менің атым Аружан.']), contact).answer, 'yes');
+});
