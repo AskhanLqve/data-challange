@@ -153,6 +153,25 @@ route('GET', '/api/conversations/:id', ({ p }) => {
     .map((e) => ({ id: e.id, created_at: e.created_at, total: e.final_score.total, checklist_name: e.checklist.name, checklist_version: e.checklist_version, status: e.status }));
   return { ...c, evaluations: evs, metrics: conversationMetrics(c) };
 });
+// Человек и ИИ на одном диалоге: последняя ручная оценка против последней оценки ИИ (исходные ответы ИИ, до апелляций).
+route('GET', '/api/conversations/:id/compare', ({ p }) => {
+  const id = decodeURIComponent(p.id);
+  const evs = db.filter('evaluations', (e) => e.conversation_id === id).sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const human = evs.find((e) => e.status === 'manual');
+  const ai = evs.find((e) => e.status !== 'manual' && (!human || e.checklist_id === human.checklist_id));
+  if (!human || !ai) return { available: false };
+  const rows = human.checklist.criteria.map((c) => {
+    const h = human.criteria.find((x) => x.criterion_id === c.id)?.final_answer;
+    const a = ai.criteria.find((x) => x.criterion_id === c.id)?.ai?.answer;
+    return { id: c.id, name: c.name, human: answerLabel(c, h), ai: a == null ? '—' : answerLabel(c, a), match: a != null && String(a) === String(h) };
+  }).filter((r) => r.ai !== '—');
+  const ok = rows.filter((r) => r.match).length;
+  return {
+    available: true, human: { id: human.id, by: human.model, total: human.final_score.total, created_at: human.created_at },
+    ai: { id: ai.id, model: ai.model, total: ai.original_score.total, created_at: ai.created_at },
+    agreement: rows.length ? Math.round((ok / rows.length) * 1000) / 10 : null, matched: ok, rows,
+  };
+});
 route('DELETE', '/api/conversations/:id', ({ p }) => ({ deleted: db.remove('conversations', decodeURIComponent(p.id), 'conversation_id') }));
 
 // Аудио: перенаправление на свежую подписанную ссылку mp3

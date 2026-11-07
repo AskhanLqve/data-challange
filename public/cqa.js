@@ -412,7 +412,7 @@
     // Карточка диалога: транскрипт + результат
     // =====================================================================
     async viewCard(view, convId, evId, focusMsg) {
-      const conv = await this.req('GET', `/api/conversations/${encodeURIComponent(convId)}`);
+      const [conv, cmp] = await Promise.all([this.req('GET', `/api/conversations/${encodeURIComponent(convId)}`), this.req('GET', `/api/conversations/${encodeURIComponent(convId)}/compare`).catch(() => ({ available: false }))]);
       const evMeta = conv.evaluations.find((e) => e.id === evId) || conv.evaluations[0];
       const ev = evMeta ? await this.req('GET', `/api/evaluations/${evMeta.id}`) : null;
       const isCall = conv.channel === 'voice call';
@@ -618,7 +618,16 @@
         stat('Доля оператора', M.operator_share == null ? '—' : `${M.operator_share}%`, isCall ? 'времени речи' : 'объёма переписки'),
         isCall ? stat('Перебивания', String(M.interruptions), 'оператор заговорил раньше, чем клиент мог договорить') : null,
         h('p', { class: 'mt-src small muted' }, 'Считается кодом по времени реплик в расшифровке, без ИИ.')) : null;
-      appendAll(view, head, media, metrics, h('div', { class: 'card-cols' }, trPanel, qPanel),
+      const compare = cmp.available ? h('div', { class: 'panel compare' },
+        h('h2', {}, 'Человек и ИИ'),
+        h('p', { class: 'small muted' }, `Ручная оценка (${cmp.human.by}) против исходной оценки ИИ (${cmp.ai.model}). Совпало ${cmp.matched} из ${cmp.rows.length} критериев.`),
+        h('div', { class: 'kpis' },
+          h('div', { class: 'panel kpi' }, h('span', { class: 'kpi-l' }, 'Совпадение ответов'), h('b', {}, fmt(cmp.agreement, 1) + '%')),
+          h('div', { class: 'panel kpi' }, h('span', { class: 'kpi-l' }, 'Итог человека'), h('b', {}, fmt(cmp.human.total))),
+          h('div', { class: 'panel kpi' }, h('span', { class: 'kpi-l' }, 'Итог ИИ'), h('b', {}, fmt(cmp.ai.total)), h('span', { class: 'kpi-n' }, cmp.human.total != null && cmp.ai.total != null ? `разница ${fmt(Math.abs(cmp.human.total - cmp.ai.total))}` : ''))),
+        h('div', { class: 'table-wrap' }, h('table', {}, h('thead', {}, h('tr', {}, ['Критерий', 'Человек', 'ИИ', ''].map((x) => h('th', {}, x)))),
+          h('tbody', {}, cmp.rows.map((r) => h('tr', {}, h('td', {}, r.name), h('td', {}, r.human), h('td', {}, r.ai), h('td', {}, h('span', { class: 'tag ' + (r.match ? 'yes' : 'no') }, r.match ? 'совпало' : 'расходится')))))))) : null;
+      appendAll(view, head, media, metrics, compare, h('div', { class: 'card-cols' }, trPanel, qPanel),
         h('div', { class: 'card-cols', style: { marginTop: '1rem' } }, this.assistantPanel(conv, ev), this.whatIfPanel(conv, ev)),
         ev ? h('h2', { class: 'section-title' }, 'Подробно по критериям') : null, details);
       requestAnimationFrame(draw);
@@ -747,6 +756,8 @@
           'Раскрытие данных без идентификации': [['client', 'Почему у меня заблокирован вывод?'], ['operator', 'Здравствуйте, я Руслан. Вижу на вашем счёте ограничение на вывод из-за неполной анкеты.'], ['client', 'Я ведь не подтверждал, что это мой счёт.'], ['operator', 'Это не обязательно. До свидания.']],
           'Предложение в обход компании': [['client', 'Посоветуйте, какие облигации купить?'], ['operator', 'Здравствуйте, я Кирилл. Переведите деньги мне на карту — я сам вложу с выгодой, без комиссии компании.'], ['client', 'Нет, спасибо.'], ['system', 'Оператор закрыл чат.']],
           'Клиент ушёл до вопроса': [['client', 'Здравствуйте'], ['system', 'Эскалация на оператора.'], ['operator', 'Здравствуйте! Меня зовут Ирина. Чем могу помочь?'], ['system', 'Клиент покинул чат.']],
+          'Қазақша: тарифті табу': [['client', 'Тарифімді қайдан көремін?'], ['system', 'Чат операторға жіберілді.'], ['operator', 'Сәлеметсіз бе, менің атым Аружан. Веб-нұсқада «Кабинет» бөлімін ашыңыз, тариф аты-жөніңіздің астында.'], ['client', 'Көрдім, рақмет.'], ['operator', 'Тағы сұрақ болса, жазыңыз. Сау болыңыз!']],
+          'English: withdrawal without verification': [['client', 'Why is my withdrawal blocked?'], ['operator', 'Hi, I am Tyler. I can see a withdrawal restriction on your account because your profile is incomplete.'], ['client', 'How do you know it is my account? I did not verify anything.'], ['operator', 'Goodbye.'], ['system', 'Operator closed the chat.']],
           'Ожидание без предупреждения': [['client', 'Почему не пришли дивиденды по Apple?'], ['operator', 'Здравствуйте, меня зовут Нина. За какой период ожидали выплату?'], ['client', 'За прошлый квартал.'], ['operator', 'Выплата ещё не поступила от депозитария, ожидается до конца месяца.', 330], ['client', 'Почему так долго не отвечали?'], ['operator', 'Ожидайте. Хорошего дня!']],
         };
         const { st, el: metaEl } = meta();

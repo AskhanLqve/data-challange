@@ -400,3 +400,7 @@ cqa-app .mt-n { font-size: 0.75rem; color: var(--muted); }
 cqa-app .mt-src { grid-column: 1 / -1; margin: 0; }
 cqa-app .learn { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--line); display: grid; gap: 0.5rem; }
 cqa-app .learn h3, cqa-app .learn p { margin: 0; }
+cqa-app .compare { margin-bottom: 1rem; }
+cqa-app .compare .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0.75rem 0; }
+cqa-app .compare .kpi { box-shadow: none; background: var(--bg); border-color: transparent; }
+@media (max-width: 720px) { cqa-app .compare .kpis { grid-template-columns: 1fr; } }

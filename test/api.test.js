@@ -259,6 +259,12 @@ test('песочница, «что если», ручная оценка, рас
   assert.equal(manual.status, 200);
   assert.equal(manual.data.final_score.total, 92.31);
   assert.equal(manual.data.provider, 'manual');
+  // человек и ИИ на одном диалоге
+  const cmp = await api('GET', `/api/conversations/${sb.data.conversation_id}/compare`);
+  assert.equal(cmp.data.available, true);
+  assert.equal(cmp.data.rows.length, 8);
+  assert.equal(cmp.data.matched, cmp.data.rows.filter((r) => r.match).length);
+  assert.equal(cmp.data.human.total, 92.31);
   assert.equal(manual.data.criteria[0].ai.evidence[0].message, 2);
 
   // распределение

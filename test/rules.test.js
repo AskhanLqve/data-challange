@@ -50,3 +50,7 @@ test('идентификация: системное подтверждение 
   assert.match(ruleFor({ ...conv('EN', ['operator', 'I see a restriction']), channel: 'agent chat' }, ident).note, /нет/);
   assert.equal(ruleFor({ ...conv('RU', ['operator', 'Да']), channel: 'voice call' }, ident), null);
 });
+
+test('контакт: английское «I am Name»', () => {
+  assert.equal(ruleFor(conv('EN', ['operator', 'Hi, I am Tyler. I can see a restriction.']), contact).answer, 'yes');
+});
