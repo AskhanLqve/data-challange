@@ -196,38 +196,66 @@ export function recomputeFinal(ev) {
 }
 
 // ---- Очередь пакетной оценки ----
+// Задачи хранятся в storage/jobs.json: после перезапуска сервера незавершённые продолжаются с места остановки.
 const CONCURRENCY = Math.max(1, Number(process.env.CQA_CONCURRENCY || 4));
-const jobs = new Map();
 
-export function getJob(id) { return jobs.get(id) || null; }
-export function listJobs() { return [...jobs.values()].slice(-20).reverse(); }
+export function getJob(id) { return db.get('jobs', id); }
+export function listJobs() { return [...db.all('jobs')].slice(-20).reverse(); }
 
 export function startBatch(conversationIds, checklist) {
-  const job = { id: newId('job'), checklist_id: checklist.id, checklist_name: checklist.name, total: conversationIds.length, done: 0, failed: 0, errors: [], results: [], status: 'running', started_at: new Date().toISOString(), cost_usd: 0 };
-  jobs.set(job.id, job);
-  const queue = [...conversationIds];
+  const job = {
+    id: newId('job'), checklist_id: checklist.id, checklist_name: checklist.name, checklist,
+    total: conversationIds.length, pending: [...conversationIds], done: 0, failed: 0, errors: [], results: [],
+    status: 'running', started_at: new Date().toISOString(), cost_usd: 0,
+  };
+  db.insert('jobs', job);
+  runJob(job);
+  return publicJob(job);
+}
+
+/** Без снимка чек-листа и очереди — для ответа клиенту. */
+export function publicJob(job) {
+  if (!job) return null;
+  const { checklist, pending, inflight, ...rest } = job;
+  return { ...rest, remaining: (pending?.length ?? 0) + (inflight?.length ?? 0) };
+}
+
+function runJob(job) {
   const worker = async () => {
-    while (queue.length) {
-      const cid = queue.shift();
+    while (job.pending.length) {
+      const cid = job.pending.shift();
+      (job.inflight ||= []).push(cid); // «в работе» — вернётся в очередь, если сервер остановят посреди оценки
       const conv = db.get('conversations', cid, 'conversation_id');
       try {
         if (!conv) throw new Error('диалог не найден');
-        const ev = await evaluateConversation(conv, checklist);
+        const ev = await evaluateConversation(conv, job.checklist);
         db.insert('evaluations', ev);
         job.results.push({ conversation_id: cid, evaluation_id: ev.id, total: ev.final_score.total, gross: ev.final_score.gross_error });
-        job.cost_usd += ev.cost_usd;
+        job.cost_usd = Math.round((job.cost_usd + ev.cost_usd) * 10000) / 10000;
         job.done++;
       } catch (e) {
         job.failed++;
         job.errors.push({ conversation_id: cid, error: String(e.message || e) });
         console.error('[eval]', cid, e.message || e);
       }
+      job.inflight = job.inflight.filter((x) => x !== cid);
+      db.upsert('jobs', job);
     }
   };
-  Promise.all(Array.from({ length: Math.min(CONCURRENCY, queue.length) }, worker)).then(() => {
+  Promise.all(Array.from({ length: Math.max(1, Math.min(CONCURRENCY, job.pending.length)) }, worker)).then(() => {
     job.status = 'finished';
     job.finished_at = new Date().toISOString();
-    job.cost_usd = Math.round(job.cost_usd * 10000) / 10000;
+    db.upsert('jobs', job);
   });
-  return job;
+}
+
+/** Вызывается при старте сервера: продолжает прерванные задачи. */
+export function resumeJobs() {
+  for (const job of db.all('jobs')) {
+    if (job.status !== 'running') continue;
+    job.pending = [...(job.inflight || []), ...job.pending];
+    job.inflight = [];
+    console.log(`[jobs] продолжаю ${job.id}: осталось ${job.pending.length} из ${job.total}`);
+    runJob(job);
+  }
 }

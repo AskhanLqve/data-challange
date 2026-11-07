@@ -100,7 +100,7 @@
       try { open = (await this.req('GET', '/api/appeals?status=open')).length; } catch { /* ignore */ }
       const hlth = this.state.health;
       this.top.replaceChildren(
-        h('div', { class: 'brand' }, 'CQA', h('small', {}, 'Conversation Quality Analytics')),
+        h('a', { class: 'brand', href: this.getAttribute('home-url') || 'index.html', title: 'На главную' }, h('span', { class: 'mark' }, 'QA'), 'CQA', h('small', {}, 'Контроль качества диалогов')),
         h('nav', {},
           h('a', { href: '#/', class: ['', 'c'].includes(sect) ? 'active' : '' }, 'Диалоги'),
           h('a', { href: '#/appeals', class: sect === 'appeals' ? 'active' : '' }, 'Апелляции', open ? h('span', { class: 'count' }, open) : null),
@@ -231,7 +231,9 @@
               h('thead', {}, h('tr', {}, h('th', {}, allBox), h('th', {}, 'Диалог'), h('th', {}, 'Язык'), h('th', {}, 'Канал'), h('th', {}, 'Запрос клиента'), h('th', {}, 'Итог'), h('th', {}, 'Статус'))),
               tbody)) : h('div', { class: 'empty' }, convs.length ? 'Ничего не найдено' : 'Диалогов пока нет. Загрузите набор из API (group_id = DEV) или файл.'))));
 
-      const running = Object.values(this.state.jobs).find((j) => j.status === 'running');
+      // Показываем идущую оценку и после перезагрузки страницы — состояние берём с сервера.
+      const serverJobs = await this.req('GET', '/api/jobs').catch(() => []);
+      const running = serverJobs.find((j) => j.status === 'running');
       if (running) this.pollJob(running.id, jobBox);
     }
 

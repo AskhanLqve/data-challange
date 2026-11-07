@@ -5,7 +5,7 @@ import path from 'node:path';
 import { db, newId } from './db.js';
 import { DEFAULT_CHECKLIST } from './defaultChecklist.js';
 import { fetchGroup, extractRecords, importRecords, resolveAudio } from './dataset.js';
-import { evaluateConversation, recomputeFinal, startBatch, getJob, listJobs } from './evaluator.js';
+import { evaluateConversation, recomputeFinal, startBatch, getJob, listJobs, publicJob, resumeJobs } from './evaluator.js';
 import { providerInfo } from './llm.js';
 import { allowedAnswers, answerLabel } from './scoring.js';
 
@@ -183,8 +183,8 @@ route('POST', '/api/evaluate/batch', ({ body }) => {
   }
   return startBatch(ids, structuredClone(cl));
 });
-route('GET', '/api/jobs', () => listJobs());
-route('GET', '/api/jobs/:id', ({ p }) => getJob(p.id) || (() => { throw new HttpError(404, 'Задача не найдена'); })());
+route('GET', '/api/jobs', () => listJobs().map(publicJob));
+route('GET', '/api/jobs/:id', ({ p }) => publicJob(getJob(p.id)) || (() => { throw new HttpError(404, 'Задача не найдена'); })());
 route('GET', '/api/evaluations/:id', ({ p }) => {
   const ev = db.get('evaluations', p.id);
   if (!ev) throw new HttpError(404, 'Оценка не найдена');
@@ -307,6 +307,8 @@ const server = http.createServer(async (req, res) => {
     if (!res.headersSent) send(res, status, { error: String(e.message || e) });
   }
 });
+
+resumeJobs();
 
 server.listen(PORT, () => {
   const info = providerInfo();

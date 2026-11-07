@@ -1,14 +1,286 @@
 <!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CQA — оценка качества диалогов</title>
-  <link rel="stylesheet" href="cqa.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CQA — контроль качества диалогов с ИИ</title>
+<meta name="description" content="Прототип Conversation Quality Analytics: автоматическая оценка работы операторов по чек-листу, доказательства, апелляции и пересмотр.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --brand: #0b9d58; --brand-dark: #087a45; --deep: #0e2a1e; --soft: #e6f6ed;
+    --bg: #f3f5f4; --panel: #fff; --ink: #14201a; --muted: #5f6d66; --line: #e1e7e3;
+    --bad: #d1343b; --warn: #a06a00;
+    --shadow: 0 1px 2px rgba(14,42,30,.05), 0 10px 30px rgba(14,42,30,.08);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --brand: #2fc47c; --brand-dark: #23a466; --deep: #08150f; --soft: #123524;
+      --bg: #0c1310; --panel: #131d18; --ink: #e5ece8; --muted: #94a39b; --line: #24332b;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --brand: #2fc47c; --brand-dark: #23a466; --deep: #08150f; --soft: #123524;
+    --bg: #0c1310; --panel: #131d18; --ink: #e5ece8; --muted: #94a39b; --line: #24332b;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.6 "Inter", -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: var(--ink); background: var(--bg); }
+  a { color: inherit; }
+  .wrap { max-width: 1160px; margin: 0 auto; padding-inline: 24px; }
+  header.top { background: var(--deep); color: #fff; border-bottom: 3px solid var(--brand); position: sticky; top: 0; z-index: 10; padding-top: env(safe-area-inset-top, 0px); }
+  header.top .wrap { display: flex; align-items: center; gap: 24px; min-height: 64px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; text-decoration: none; letter-spacing: .3px; }
+  .mark { width: 32px; height: 32px; border-radius: 10px; background: var(--brand); display: grid; place-items: center; font-size: 13px; }
+  .brand small { font-weight: 500; color: rgba(255,255,255,.6); }
+  header nav { display: flex; gap: 6px; flex: 1; flex-wrap: wrap; }
+  header nav a { text-decoration: none; color: rgba(255,255,255,.75); padding: 6px 12px; border-radius: 10px; font-size: 14px; font-weight: 500; }
+  header nav a:hover { color: #fff; background: rgba(255,255,255,.08); }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 22px; border-radius: 12px; font-weight: 600; text-decoration: none; border: 1px solid transparent; transition: background .15s, transform .15s; }
+  .btn:hover { transform: translateY(-1px); }
+  .btn.primary { background: var(--brand); color: #fff; }
+  .btn.primary:hover { background: var(--brand-dark); }
+  .btn.ghost { border-color: var(--line); background: var(--panel); }
+  .btn.sm { padding: 8px 16px; font-size: 14px; }
+
+  .hero { background: radial-gradient(1200px 500px at 85% -10%, rgba(11,157,88,.35), transparent 60%), var(--deep); color: #fff; padding-block: 72px 88px; }
+  .hero .wrap { display: grid; grid-template-columns: 1.15fr 1fr; gap: 48px; align-items: center; }
+  .eyebrow { display: inline-block; font-size: 13px; font-weight: 600; letter-spacing: .6px; text-transform: uppercase; color: #8fe3b6; background: rgba(47,196,124,.12); border: 1px solid rgba(47,196,124,.3); padding: 4px 12px; border-radius: 20px; }
+  .hero h1 { font-size: clamp(32px, 5vw, 52px); line-height: 1.08; letter-spacing: -1.2px; margin: 18px 0 16px; font-weight: 800; }
+  .hero h1 em { font-style: normal; color: #4fdc93; }
+  .hero p.lead { font-size: 18px; color: rgba(255,255,255,.78); max-width: 560px; margin: 0 0 28px; }
+  .hero .ctas { display: flex; gap: 12px; flex-wrap: wrap; }
+  .hero .btn.ghost { background: transparent; color: #fff; border-color: rgba(255,255,255,.3); }
+
+  .demo { background: #fff; color: #14201a; border-radius: 18px; padding: 20px; box-shadow: 0 30px 60px rgba(0,0,0,.35); }
+  .demo .head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; border-bottom: 1px solid #e1e7e3; padding-bottom: 12px; margin-bottom: 12px; }
+  .demo .score { font-size: 44px; font-weight: 800; color: #087a45; letter-spacing: -1px; line-height: 1; }
+  .demo .row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px dashed #e1e7e3; font-size: 14px; }
+  .demo .row:last-child { border-bottom: 0; }
+  .tag { font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 20px; }
+  .tag.yes { background: #e3f4ea; color: #12804a; } .tag.no { background: #fdeaea; color: #d1343b; } .tag.na { background: #eef1ef; color: #6f7a74; } .tag.mid { background: #fff4d9; color: #a06a00; }
+  .demo .ev { margin-top: 10px; font-size: 13px; background: #f1f5f3; border-left: 3px solid #0b9d58; padding: 8px 10px; border-radius: 8px; }
+  .demo .cap { font-size: 12px; color: #66736c; margin-top: 10px; }
+
+  section { padding-block: 72px; }
+  section h2 { font-size: clamp(26px, 3.4vw, 36px); letter-spacing: -.6px; margin: 0 0 10px; line-height: 1.15; }
+  section p.sub { color: var(--muted); margin: 0 0 36px; max-width: 680px; font-size: 17px; }
+
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: -56px; position: relative; z-index: 2; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px; box-shadow: var(--shadow); }
+  .stat b { display: block; font-size: 32px; font-weight: 800; letter-spacing: -.8px; color: var(--brand-dark); line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .stat span { color: var(--muted); font-size: 14px; }
+  .stats-note { color: var(--muted); font-size: 13px; margin-top: 10px; }
+
+  .steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; counter-reset: step; }
+  .step { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 22px; position: relative; }
+  .step::before { counter-increment: step; content: counter(step); width: 34px; height: 34px; border-radius: 10px; background: var(--soft); color: var(--brand-dark); font-weight: 800; display: grid; place-items: center; margin-bottom: 14px; }
+  .step h3 { margin: 0 0 6px; font-size: 17px; }
+  .step p { margin: 0; color: var(--muted); font-size: 15px; }
+
+  .features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .feature { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 24px; }
+  .feature .ico { width: 42px; height: 42px; border-radius: 12px; background: var(--soft); display: grid; place-items: center; margin-bottom: 14px; }
+  .feature .ico svg { width: 22px; height: 22px; stroke: var(--brand-dark); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .feature h3 { margin: 0 0 6px; font-size: 17px; }
+  .feature p { margin: 0; color: var(--muted); font-size: 15px; }
+
+  .alt { background: var(--panel); border-block: 1px solid var(--line); }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; }
+  .rules { list-style: none; padding: 0; margin: 0; }
+  .rules li { padding: 12px 0 12px 32px; border-bottom: 1px solid var(--line); position: relative; }
+  .rules li::before { content: ""; position: absolute; left: 4px; top: 19px; width: 12px; height: 12px; border-radius: 4px; background: var(--brand); }
+  .code { overflow-x: auto; background: var(--deep); color: #d7f5e5; border-radius: 14px; padding: 18px 20px; font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  table.models { width: 100%; border-collapse: collapse; font-size: 15px; }
+  table.models th, table.models td { text-align: left; padding: 12px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.models th { font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+  .table-wrap { overflow-x: auto; }
+
+  .cta { background: var(--deep); color: #fff; border-radius: 22px; padding: 44px; display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+  .cta h2 { margin: 0 0 6px; }
+  .cta p { margin: 0; color: rgba(255,255,255,.75); }
+  footer { color: var(--muted); font-size: 14px; padding-block: 28px 40px; padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px)); }
+
+  @media (max-width: 900px) {
+    .hero .wrap, .split { grid-template-columns: 1fr; }
+    .stats, .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .features { grid-template-columns: 1fr; }
+    .stats { margin-top: -40px; }
+  }
+  @media (max-width: 520px) {
+    .wrap { padding-inline: 16px; }
+    .stats, .steps { grid-template-columns: 1fr; }
+    header nav { display: none; }
+    .brand small { display: none; }
+    .cta { padding: 28px; }
+    .hero { padding-block: 48px 72px; }
+  }
+</style>
 </head>
-<body style="margin:0">
-  <!-- Компонент самодостаточен: для Dynamics 365 укажите api-base на адрес сервиса оценки. -->
-  <cqa-app api-base=""></cqa-app>
-  <script src="cqa.js"></script>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#"><span class="mark">QA</span>CQA <small>Контроль качества диалогов</small></a>
+    <nav>
+      <a href="#how">Как работает</a>
+      <a href="#features">Возможности</a>
+      <a href="#rules">Расчёт</a>
+      <a href="#tech">Технологии</a>
+    </nav>
+    <a class="btn primary sm" data-app-link href="app.html">Открыть приложение →</a>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="wrap">
+    <div>
+      <span class="eyebrow">Conversation Quality Analytics</span>
+      <h1>Каждый диалог оператора — <em>оценён по чек-листу</em> и подтверждён репликами</h1>
+      <p class="lead">ИИ проверяет чаты и звонки на русском, казахском и английском, ставит баллы по критериям, объясняет каждое решение и показывает, на какой реплике оно основано. Спорную оценку можно оспорить — проверяющий пересмотрит её, итог пересчитается.</p>
+      <div class="ctas">
+        <a class="btn primary" data-app-link href="app.html">Открыть приложение</a>
+        <a class="btn ghost" href="#how">Как это работает</a>
+      </div>
+    </div>
+    <div class="demo" aria-label="Пример карточки оценки">
+      <div class="head">
+        <div><div style="font-weight:700">p1-ru-001</div><div style="font-size:13px;color:#66736c">💬 чат · RU · 12 реплик</div></div>
+        <div style="text-align:right"><div class="score">93.08</div><div style="font-size:12px;color:#66736c">из 100</div></div>
+      </div>
+      <div class="row"><span>01 Установление контакта</span><span class="tag yes">Да</span></div>
+      <div class="row"><span>02 Выявление потребности</span><span class="tag na">N/A</span></div>
+      <div class="row"><span>03 Идентификация</span><span class="tag na">N/A</span></div>
+      <div class="row"><span>04 Консультация</span><span class="tag yes">20 / 20</span></div>
+      <div class="row"><span>06 Управление диалогом</span><span class="tag mid">7 / 10</span></div>
+      <div class="row"><span>08 Грубые ошибки</span><span class="tag yes">Нет</span></div>
+      <div class="ev"><b style="color:#087a45">#10</b> Оператор: «Здравствуйте! Меня зовут Алина…»</div>
+      <div class="cap">Иллюстрация интерфейса. Веса критериев с N/A перераспределены — максимум остаётся 100.</div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap" id="stats-block" hidden>
+  <div class="stats" id="stats"></div>
+  <div class="stats-note" id="stats-note"></div>
+</div>
+
+<section id="how">
+  <div class="wrap">
+    <h2>Как это работает</h2>
+    <p class="sub">Модель отвечает только на вопросы чек-листа. Всю арифметику — веса, N/A, округление — считает код по правилам из чек-листа, поэтому результат воспроизводим и проверяем.</p>
+    <div class="steps">
+      <div class="step"><h3>Загрузка</h3><p>Набор по group_id из API, файл JSON или текст транскрипта. Реплики бота и системные события — контекст.</p></div>
+      <div class="step"><h3>Промпт из чек-листа</h3><p>Критерии, шкалы и условия N/A берутся из текущей версии чек-листа. Новый критерий применяется без правки кода.</p></div>
+      <div class="step"><h3>Оценка ИИ</h3><p>Ответ строго по схеме: для каждого критерия — допустимое значение, объяснение и номера реплик-доказательств.</p></div>
+      <div class="step"><h3>Расчёт и пересмотр</h3><p>Код считает баллы и итог. Оценку можно оспорить: проверяющий подтверждает или меняет её, итог пересчитывается.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="features" class="alt">
+  <div class="wrap">
+    <h2>Возможности</h2>
+    <p class="sub">Оба рабочих контура из задания — оценка и работа с результатом.</p>
+    <div class="features">
+      <div class="feature"><div class="ico"><svg viewBox="0 0 24 24"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg></div><h3>Редактор чек-листа</h3><p>Критерии, секции, веса, тип ответа, шкалы и правила N/A. Каждое сохранение — новая версия; старые оценки хранят свой снимок.</p></div>
+      <div class="feature"><div class="ico"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 13h5"/></svg></div><h3>Доказательства в реплике</h3><p>Клик по обоснованию прокручивает транскрипт к нужному сообщению. Для пропущенного действия — проверенный участок.</p></div>
+      <div class="feature"><div class="ico"><svg viewBox="0 0 24 24"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3zM3 19a2 2 0 0 0 2 2h1v-6H3z"/></svg></div><h3>Звонки и запись</h3><p>Встроенный плеер: кнопка ▶ у каждой реплики и переход по доказательству перематывают запись к нужному моменту.</p></div>
+      <div class="feature"><div class="ico"><svg viewBox="0 0 24 24"><path d="M12 3l9 4-9 4-9-4 9-4z"/><path d="M3 12l9 4 9-4M3 17l9 4 9-4"/></svg></div><h3>Пакетная оценка</h3><p>Весь набор в очереди с прогрессом. Очередь сохраняется на диск и продолжается после перезапуска сервера.</p></div>
+      <div class="feature"><div class="ico"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><h3>Апелляции</h3><p>Оператор оспаривает критерий с комментарием. Проверяющий видит спорную оценку, обоснование ИИ и фрагмент диалога.</p></div>
+      <div class="feature"><div class="ico"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/></svg></div><h3>Прозрачность и экспорт</h3><p>Трассировка: промпт и ответ модели для каждой оценки. Выгрузка результатов в CSV и JSON.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="rules">
+  <div class="wrap split">
+    <div>
+      <h2>Правила расчёта</h2>
+      <p class="sub">Точно по выданному чек-листу. Покрыто автотестами.</p>
+      <ul class="rules">
+        <li>«Да» даёт полный вес критерия, «Нет» — ноль.</li>
+        <li>Шкала пересчитывается пропорционально весу: верхняя ступень — полный вес.</li>
+        <li>N/A исключает критерий, его вес перераспределяется между применимыми — максимум остаётся 100.</li>
+        <li>Итог округляется до двух знаков; без применимых критериев итог не рассчитывается.</li>
+        <li>Грубая ошибка — отдельная отметка, не смешивается с баллами.</li>
+      </ul>
+    </div>
+    <div>
+      <h2 style="font-size:22px">Пример</h2>
+      <p class="sub" style="margin-bottom:16px">Идентификация (вес 20) — N/A, контакт (вес 10) — «Нет», остальное — «Да».</p>
+      <pre class="code">применимый вес   = 100 − 20 = 80
+набрано          = 80 − 10  = 70
+итог             = 70 / 80 × 100 = 87.50</pre>
+    </div>
+  </div>
+</section>
+
+<section id="tech" class="alt">
+  <div class="wrap">
+    <h2>Технологии</h2>
+    <p class="sub">Интерфейс — веб-компонент на HTML, CSS и JavaScript без сборки, готовый к встраиванию в Dynamics 365. Сервер — Node.js без фреймворков, хранение — JSON-файлы.</p>
+    <div class="table-wrap">
+      <table class="models">
+        <thead><tr><th>Режим</th><th>Модель</th><th>Стоимость оценки</th><th>Особенности</th></tr></thead>
+        <tbody>
+          <tr><td><b>Локальный</b></td><td>Qwen 2.5 7B через Ollama</td><td>бесплатно</td><td>данные не покидают компьютер; ~60–80 с на диалог на ноутбучной видеокарте</td></tr>
+          <tr><td><b>Облачный</b></td><td>Claude Opus 5.5 (Anthropic)</td><td>≈ $0.05–0.10 за диалог</td><td>выше точность, особенно на казахском; стоимость считается по фактическим токенам</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="stats-note" id="model-now"></p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="cta">
+      <div><h2>Посмотрите на живых диалогах</h2><p>Набор DEV: 65 диалогов — чаты на трёх языках и реальные звонки.</p></div>
+      <a class="btn primary" data-app-link href="app.html">Открыть приложение →</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">CQA — прототип для хакатона Freedom Broker. Не является официальным продуктом компании.</div>
+</footer>
+
+<script>
+  // Ссылка на приложение и адрес API настраиваются: ?app=<url>&api=<url> или window.CQA_APP_URL / window.CQA_API_BASE
+  (function () {
+    var q = new URLSearchParams(location.search);
+    var app = q.get('app') || window.CQA_APP_URL || 'app.html';
+    var api = (q.get('api') || window.CQA_API_BASE || '').replace(/\/$/, '');
+    document.querySelectorAll('[data-app-link]').forEach(function (a) { a.href = app; });
+
+    function fmt(x) { return x == null ? '—' : (Math.round(x * 100) / 100).toLocaleString('ru-RU'); }
+    Promise.all([
+      fetch(api + '/api/conversations').then(function (r) { if (!r.ok) throw 0; return r.json(); }),
+      fetch(api + '/api/health').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
+    ]).then(function (res) {
+      var convs = res[0], health = res[1];
+      if (!Array.isArray(convs) || !convs.length) return;
+      var ev = convs.filter(function (c) { return c.last_evaluation && c.last_evaluation.total != null; });
+      var avg = ev.length ? ev.reduce(function (s, c) { return s + c.last_evaluation.total; }, 0) / ev.length : null;
+      var gross = ev.filter(function (c) { return c.last_evaluation.gross; }).length;
+      var langs = {}; convs.forEach(function (c) { langs[c.language] = (langs[c.language] || 0) + 1; });
+      var calls = convs.filter(function (c) { return c.channel === 'voice call'; }).length;
+      var items = [
+        [convs.length, 'диалогов загружено'],
+        [ev.length, 'оценено ИИ'],
+        [fmt(avg), 'средний итог из 100'],
+        [gross, 'с грубыми ошибками']
+      ];
+      document.getElementById('stats').innerHTML = items.map(function (i) { return '<div class="stat"><b>' + i[0] + '</b><span>' + i[1] + '</span></div>'; }).join('');
+      document.getElementById('stats-note').textContent = 'Данные из работающего сервиса: ' + Object.keys(langs).map(function (k) { return k + ' — ' + langs[k]; }).join(', ') + (calls ? ', из них звонков — ' + calls : '') + '.';
+      document.getElementById('stats-block').hidden = false;
+      if (health) document.getElementById('model-now').textContent = 'Сейчас подключено: ' + health.provider + ' / ' + health.model + '.';
+    }).catch(function () { /* API недоступен (например, статический хостинг) — блок статистики скрыт */ });
+  })();
+</script>
 </body>
 </html>
