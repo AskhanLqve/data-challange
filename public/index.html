@@ -16,23 +16,25 @@
   :root {
     /* Палитра Freedom Broker (fbroker.kz): brand-primary #00B323, secondary #13AD64, additional #00E183,
        accent #FFA700, tertiary #FF3A38, dark-primary #0C1411, текст #323335, серые #6A788A/#B2BCC8/#F0F2F5 */
-    --bg: #f0f2f5; --surface: #ffffff; --surface-2: #f5f5f5; --ink: #0c1411; --ink-2: #6a788a; --ink-3: #b2bcc8;
+    --bg: #f0f2f5; --surface: #ffffff; --surface-2: #f5f5f5; --ink: #0c1411; --ink-2: #56657a; --ink-3: #b2bcc8;
     --blue: #00b323; --blue-hover: #13ad64; --blue-deep: #0c1411; --blue-soft: #dff5ec; --cyan: #00e183; --violet: #ffa700;
-    --line: #e7e7ea; --ok: #13ad64; --bad: #ff3a38; --radius: 1.2rem;
+    --line: #e7e7ea; --ok: #08703c; --bad: #c41f1c; --radius: 1.2rem;
+    /* зелёный для ТЕКСТА: фирменный #00b323 на светлом фоне не держит контраст 4.5:1 */
+    --green-text: #0a7d2c;
     --shadow: 0 1px 2px rgba(12,20,17,.04), 0 8px 24px rgba(12,20,17,.06);
     color-scheme: light;
   }
   :root[data-theme="dark"] {
-    --bg: #0c1411; --surface: #131d19; --surface-2: #18241f; --ink: #f0f2f5; --ink-2: #b2bcc8; --ink-3: #6a788a;
+    --bg: #0c1411; --surface: #131d19; --surface-2: #18241f; --ink: #f0f2f5; --ink-2: #b2bcc8; --ink-3: #8593a5;
     --blue: #00b323; --blue-hover: #00e183; --blue-deep: #00e183; --blue-soft: #123322; --line: #22302a;
-    --ok: #00e183; --bad: #ff5a58; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+    --ok: #00e183; --bad: #ff5a58; --green-text: #00e183; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
     color-scheme: dark;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #0c1411; --surface: #131d19; --surface-2: #18241f; --ink: #f0f2f5; --ink-2: #b2bcc8; --ink-3: #6a788a;
+      --bg: #0c1411; --surface: #131d19; --surface-2: #18241f; --ink: #f0f2f5; --ink-2: #b2bcc8; --ink-3: #8593a5;
       --blue: #00b323; --blue-hover: #00e183; --blue-deep: #00e183; --blue-soft: #123322; --line: #22302a;
-      --ok: #00e183; --bad: #ff5a58; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+      --ok: #00e183; --bad: #ff5a58; --green-text: #00e183; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
       color-scheme: dark;
     }
   }
@@ -47,7 +49,7 @@
   .two-tone .blue { color: var(--blue); }
   /* акцент заголовка первого экрана — переливом голубой → зелёный, как в стилистике Freedom */
   .hero h1 .blue { background: linear-gradient(90deg, #4f8ff7 0%, #00b323 55%, #00e183 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .label { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--blue); }
+  .label { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--green-text); }
   .muted { color: var(--ink-2); }
 
   /* шапка-пилюля */
@@ -64,7 +66,7 @@
   .icon-btn svg { width: 1.1rem; height: 1.1rem; }
   .btn { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 2.75rem; padding: 0 1.4rem; border-radius: 999px; font-family: inherit; font-size: inherit; font-weight: 600; line-height: 1; cursor: pointer; text-decoration: none; border: 1px solid var(--line); background: var(--surface); color: var(--ink); white-space: nowrap; transition: background-color .15s, transform .15s; }
   .btn svg { width: 1rem; height: 1rem; }
-  .btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .btn.primary { background: var(--blue); border-color: var(--blue); color: #0c1411; }
   .btn.primary:hover { background: var(--blue-hover); }
   .btn.big { min-height: 3.25rem; padding: 0 1.75rem; }
 
@@ -121,9 +123,9 @@
   .device-wrap > .chip { z-index: 2; }
   .device { width: min(23rem, 100%); background: #0c1411; color: #f0f2f5; border-radius: 2.2rem; padding: 1.1rem; border: 6px solid #22302a;
     box-shadow: 0 40px 80px rgba(0,179,35,.22), 0 0 0 1px rgba(255,255,255,.04) inset; transform: rotate(-5deg); }
-  .device .top { display: flex; justify-content: space-between; font-size: 0.6875rem; color: #6a788a; padding: 0.2rem 0.4rem 0.8rem; }
+  .device .top { display: flex; justify-content: space-between; font-size: 0.6875rem; color: #8593a5; padding: 0.2rem 0.4rem 0.8rem; }
   .device .hello { padding: 0 0.4rem; font-weight: 600; font-size: 1rem; }
-  .device .hello small { display: block; font-weight: 400; font-size: 0.6875rem; color: #6a788a; }
+  .device .hello small { display: block; font-weight: 400; font-size: 0.6875rem; color: #8593a5; }
   .device .score { margin: 0.8rem 0; padding: 1rem; border-radius: 1.1rem; background: linear-gradient(135deg, #00b323, #13ad64); }
   .device .score b { font-size: 2.4rem; letter-spacing: -0.04em; line-height: 1; display: block; }
   .device .score span { font-size: 0.75rem; opacity: .85; }
@@ -159,11 +161,11 @@
   .flow p { margin-top: 1.1rem; font-size: 1.125rem; color: var(--ink-2); max-width: 32rem; }
   .checks { list-style: none; padding: 0; margin: 1.5rem 0 0; display: grid; gap: 0.75rem; }
   .checks li { display: flex; gap: 0.75rem; align-items: center; font-weight: 500; }
-  .checks svg { width: 1.3rem; height: 1.3rem; flex: none; color: #fff; background: var(--blue); border-radius: 50%; padding: 0.25rem; }
+  .checks svg { width: 1.3rem; height: 1.3rem; flex: none; color: #0c1411; background: var(--blue); border-radius: 50%; padding: 0.25rem; }
   .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.25rem; }
   .msg { display: grid; grid-template-columns: 2rem 1fr; gap: 0.6rem; padding: 0.7rem 0.8rem; border-radius: 0.9rem; font-size: 0.9375rem; }
   .msg + .msg { margin-top: 0.4rem; }
-  .msg .n { color: var(--ink-3); font-size: 0.8125rem; }
+  .msg .n { color: var(--ink-2); font-size: 0.8125rem; }
   .msg .who { display: block; font-size: 0.75rem; color: var(--ink-2); }
   .msg.op { background: var(--blue-soft); }
   .msg.hit { outline: 2px solid var(--blue); }
@@ -184,7 +186,7 @@
   /* возможности */
   .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-top: 3rem; }
   .feature { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.6rem; }
-  .feature.wide { grid-column: span 2; background: linear-gradient(135deg, #00b323, #0c1411 120%); color: #fff; border-color: transparent; }
+  .feature.wide { grid-column: span 2; background: linear-gradient(135deg, #0a7d2c, #0c1411 120%); color: #fff; border-color: transparent; }
   .feature.wide p { color: rgba(255,255,255,.82); }
   .feature .ico { width: 2.75rem; height: 2.75rem; border-radius: 0.9rem; display: grid; place-items: center; background: var(--blue-soft); color: var(--blue); margin-bottom: 1.1rem; }
   .feature.wide .ico { background: rgba(255,255,255,.16); color: #fff; }
@@ -229,7 +231,7 @@
   .cta { position: relative; overflow: hidden; border-radius: 2rem; padding: 4rem 3rem; background: #0c1411; color: #fff; display: flex; justify-content: space-between; align-items: center; gap: 2rem; flex-wrap: wrap; }
   .cta h2 { font-size: clamp(2rem, 4vw, 3.4rem); letter-spacing: -0.045em; line-height: 1.02; }
   .cta p { margin-top: 0.9rem; color: rgba(255,255,255,.8); }
-  .cta .btn { background: #00b323; color: #fff; border-color: #00b323; }
+  .cta .btn { background: #00b323; color: #0c1411; border-color: #00b323; }
   .cta .btn:hover { background: #13ad64; }
   .cta h2 span { color: #00e183; }
   footer { padding-block: 3rem calc(3rem + env(safe-area-inset-bottom, 0px)); color: var(--ink-2); font-size: 0.875rem; }

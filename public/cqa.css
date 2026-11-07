@@ -3,9 +3,11 @@ cqa-app [hidden] { display: none !important; }
 cqa-app {
   /* Палитра Freedom Broker (fbroker.kz): #00B323 / #13AD64 / #00E183 / #FFA700 / #FF3A38 / #0C1411; серые #6A788A, #B2BCC8, #F0F2F5. */
   --brand: #00b323; --brand-dark: #13ad64; --brand-deep: #0c1411; --brand-soft: #dff5ec;
-  --bg: #f0f2f5; --panel: #fff; --ink: #0c1411; --muted: #6a788a; --line: #e7e7ea;
-  --accent: var(--brand); --accent-soft: var(--brand-soft); --ok: #13ad64; --ok-soft: #dff5ec; --bad: #ff3a38; --bad-soft: #ffeceb;
-  --na: #6a788a; --na-soft: #f0f2f5; --warn: #b87800; --warn-soft: #fff4dc; --hl: #dff5ec;
+  --bg: #f0f2f5; --panel: #fff; --ink: #0c1411; --muted: #56657a; --line: #e7e7ea;
+  /* цвета ТЕКСТА — темнее фирменных заливок, чтобы держать контраст 4.5:1 (заливки остаются фирменными) */
+  --brand-text: #0a7d2c; --on-brand: #0c1411;
+  --accent: var(--brand-text); --accent-soft: var(--brand-soft); --ok: #08703c; --ok-soft: #dff5ec; --bad: #c41f1c; --bad-soft: #ffeceb;
+  --na: #56657a; --na-soft: #f0f2f5; --warn: #9a6200; --warn-soft: #fff4dc; --hl: #dff5ec;
   --client: #fff; --operator: #f2fbf6; --bot: #f5f5f5; --system: transparent;
   --radius: 1.2rem; --shadow: 0 1px 2px rgba(12,20,17,.04), 0 8px 24px rgba(12,20,17,.06);
   --s-title: 1.5rem; --s-body: 0.9375rem; --s-meta: 0.8125rem; --s-big: 2.75rem;
@@ -16,6 +18,7 @@ cqa-app {
   cqa-app {
     --brand: #00b323; --brand-dark: #00e183; --brand-deep: #f0f2f5; --brand-soft: #123322;
     --bg: #0c1411; --panel: #131d19; --ink: #f0f2f5; --muted: #b2bcc8; --line: #22302a;
+    --brand-text: #00e183; --on-brand: #0c1411;
     --ok: #00e183; --ok-soft: #123322; --bad: #ff5a58; --bad-soft: #3a1a19;
     --na: #b2bcc8; --na-soft: #18241f; --warn: #ffa700; --warn-soft: #33270a; --hl: #123322;
     --client: #131d19; --operator: #15281e; --bot: #18241f; --system: transparent;
@@ -32,7 +35,7 @@ cqa-app .brand small { color: var(--muted); font-weight: 500; margin-left: 6px; 
 cqa-app nav { display: flex; gap: 4px; }
 cqa-app nav a { padding: 0.45rem 0.95rem; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; }
 cqa-app nav a:hover { color: var(--ink); }
-cqa-app nav a.active { background: var(--brand); color: #fff; font-weight: 600; }
+cqa-app nav a.active { background: var(--brand); color: var(--on-brand); font-weight: 600; }
 cqa-app nav a .count { background: var(--bad); color: #fff; border-radius: 9px; padding: 0 6px; font-size: 11px; margin-left: 4px; }
 cqa-app .spacer { flex: 1; }
 cqa-app .model-badge { font-size: var(--s-meta); color: var(--muted); border: 1px solid var(--line); background: var(--panel); border-radius: 20px; padding: 3px 10px; }
@@ -49,7 +52,7 @@ cqa-app .small { font-size: var(--s-meta); }
 cqa-app a.btn { text-decoration: none; display: inline-block; }
 cqa-app .btn { border: 1px solid var(--line); background: var(--panel); padding: 0.5rem 1.1rem; border-radius: 999px; cursor: pointer; font-weight: 500; white-space: nowrap; }
 cqa-app .btn:hover { border-color: var(--accent); }
-cqa-app .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+cqa-app .btn.primary { background: var(--brand); border-color: var(--brand-text); color: var(--on-brand); }
 cqa-app .btn.primary:hover { background: var(--brand-dark); border-color: var(--brand-dark); }
 cqa-app .btn.danger { color: var(--bad); }
 cqa-app .btn.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
@@ -164,18 +167,18 @@ cqa-app .kv dd { margin: 0; }
 cqa-app .panel { border-color: var(--line); }
 
 cqa-app .totals .score.big + .small { margin-top: 4px; }
-cqa-app input:focus, cqa-app select:focus, cqa-app textarea:focus { outline: 2px solid var(--brand-soft); border-color: var(--brand); }
+cqa-app input:focus, cqa-app select:focus, cqa-app textarea:focus { outline: 2px solid var(--brand-soft); border-color: var(--brand-text); }
 cqa-app a { color: var(--brand-dark); }
 
 /* «Протокол»: доказательства — как маркер, системные события — тихие, тег-ответы без капса */
 cqa-app th { font-size: var(--s-meta); font-weight: 600; color: var(--muted); }
 cqa-app .tag { font-size: var(--s-meta); font-weight: 600; }
 cqa-app .ev { background: var(--hl); border-color: transparent; }
-cqa-app .ev:hover { border-color: var(--brand); }
+cqa-app .ev:hover { border-color: var(--brand-text); }
 cqa-app .msg { border-left: 2px solid transparent; border-radius: 0.9rem; }
 cqa-app .msg.operator { border-left-color: transparent; }
 cqa-app .msg.system { color: var(--muted); }
-cqa-app .msg.flash { background: var(--hl); border-color: var(--brand); }
+cqa-app .msg.flash { background: var(--hl); border-color: var(--brand-text); }
 cqa-app .crit.flagged { border-color: var(--bad); background: var(--bad-soft); }
 cqa-app .panel { box-shadow: var(--shadow); }
 cqa-app .score { font-variant-numeric: tabular-nums; }
@@ -185,7 +188,7 @@ cqa-app :focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
 /* Форма элементов: мягкие поля, круглые теги, мягкие поля ввода, таблица без рамок */
 cqa-app input[type=text], cqa-app input[type=number], cqa-app input[type=search], cqa-app select, cqa-app textarea { border-radius: 0.8rem; padding: 0.5rem 0.8rem; }
 cqa-app .tag { border-radius: 999px; padding: 0.12rem 0.65rem; }
-cqa-app .tag.blue { background: var(--brand-soft); color: var(--brand); }
+cqa-app .tag.blue { background: var(--brand-soft); color: var(--brand-text); }
 cqa-app .crit { border-radius: var(--radius); }
 cqa-app .ev { border-radius: 999px; padding: 0.25rem 0.75rem; }
 cqa-app tbody tr:hover { background: var(--brand-soft); }
@@ -232,11 +235,11 @@ cqa-app .lane-names { display: grid; grid-template-rows: 1fr 1fr; font-weight: 6
 cqa-app .lane-names span { display: flex; align-items: center; }
 cqa-app .wave { width: 100%; height: 120px; cursor: pointer; display: block; }
 cqa-app .transport { display: flex; align-items: center; gap: 1rem; margin-top: 0.75rem; flex-wrap: wrap; }
-cqa-app .play-btn { width: 2.75rem; height: 2.75rem; border-radius: 50%; border: 0; background: var(--brand); color: #fff; display: grid; place-items: center; cursor: pointer; flex: none; }
+cqa-app .play-btn { width: 2.75rem; height: 2.75rem; border-radius: 50%; border: 0; background: var(--brand); color: var(--on-brand); display: grid; place-items: center; cursor: pointer; flex: none; }
 cqa-app .play-btn:disabled { background: var(--line); color: var(--muted); cursor: default; }
 cqa-app .play-btn svg { width: 1.2rem; height: 1.2rem; }
 cqa-app .transport .time { font-variant-numeric: tabular-nums; color: var(--muted); min-width: 7.5rem; }
-cqa-app .seek { flex: 1; min-width: 10rem; accent-color: var(--brand); }
+cqa-app .seek { flex: 1; min-width: 10rem; accent-color: var(--brand-text); }
 
 /* две колонки */
 cqa-app .card-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
@@ -320,7 +323,7 @@ cqa-app .accuracy .kpi { box-shadow: none; background: var(--bg); border-color: 
 @media (max-width: 720px) { cqa-app .accuracy .kpis { grid-template-columns: 1fr; } }
 cqa-app .weak { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 0.5rem; margin-top: 0.75rem; }
 cqa-app .weak-row { display: grid; grid-template-columns: 1fr auto auto; gap: 0.6rem; align-items: center; padding: 0.6rem 0.8rem; border: 1px solid var(--line); border-radius: 0.8rem; text-decoration: none; color: var(--ink); }
-cqa-app .weak-row:hover { border-color: var(--brand); }
+cqa-app .weak-row:hover { border-color: var(--brand-text); }
 cqa-app .tip { position: fixed; z-index: 50; max-width: 18rem; background: #0c1411; color: #fff; font-size: var(--s-meta); padding: 0.45rem 0.65rem; border-radius: 0.5rem; pointer-events: none; box-shadow: var(--shadow); }
 
 @media (max-width: 1100px) {
@@ -343,7 +346,7 @@ cqa-app .tip { position: fixed; z-index: 50; max-width: 18rem; background: #0c14
 /* ===================== Новая проверка, помощник, «что если», распределение ===================== */
 cqa-app .tabs { display: flex; gap: 0.4rem; margin-bottom: 1rem; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 cqa-app .tab { padding: 0.6rem 1rem; text-decoration: none; color: var(--muted); font-weight: 500; border-bottom: 2px solid transparent; margin-bottom: -1px; }
-cqa-app .tab.on { color: var(--ink); border-bottom-color: var(--brand); }
+cqa-app .tab.on { color: var(--ink); border-bottom-color: var(--brand-text); }
 cqa-app .composer-list { display: flex; flex-direction: column; gap: 0.5rem; max-height: 28rem; overflow-y: auto; padding: 0.25rem; background: var(--bg); border-radius: 0.9rem; min-height: 6rem; }
 cqa-app .bubble { max-width: 78%; padding: 0.55rem 0.7rem; border-radius: 0.9rem; background: var(--panel); border: 1px solid var(--line); }
 cqa-app .bubble.client { align-self: flex-start; }
@@ -351,7 +354,7 @@ cqa-app .bubble.operator { align-self: flex-end; background: var(--operator); bo
 cqa-app .bubble.bot { align-self: flex-start; background: var(--bot); }
 cqa-app .bubble.system { align-self: center; background: transparent; border-style: dashed; max-width: 90%; }
 cqa-app .bubble textarea { min-height: 2.5rem; margin-top: 0.35rem; background: transparent; border-color: transparent; padding: 0.2rem 0.3rem; }
-cqa-app .bubble textarea:focus { background: var(--panel); border-color: var(--brand); }
+cqa-app .bubble textarea:focus { background: var(--panel); border-color: var(--brand-text); }
 cqa-app .bubble-meta { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
 cqa-app .bubble-meta select, cqa-app .bubble-meta input { padding: 0.15rem 0.4rem; font-size: var(--s-meta); }
 cqa-app .composer { display: grid; grid-template-columns: auto 1fr auto; gap: 0.6rem; align-items: center; }
@@ -363,7 +366,7 @@ cqa-app .assist { display: flex; flex-direction: column; }
 cqa-app .assist h2, cqa-app .whatif h2 { font-size: 1.25rem; margin: 0 0 0.6rem; }
 cqa-app .assist-log { display: flex; flex-direction: column; gap: 0.5rem; max-height: 22rem; min-height: 8rem; overflow-y: auto; margin: 0.75rem 0; padding: 0.5rem; background: var(--bg); border-radius: 0.9rem; }
 cqa-app .assist-msg { max-width: 88%; padding: 0.6rem 0.8rem; border-radius: 0.9rem; white-space: pre-wrap; line-height: 1.5; }
-cqa-app .assist-msg.user { align-self: flex-end; background: var(--brand); color: #fff; }
+cqa-app .assist-msg.user { align-self: flex-end; background: var(--brand); color: var(--on-brand); }
 cqa-app .assist-msg.assistant { align-self: flex-start; background: var(--panel); border: 1px solid var(--line); }
 cqa-app .assist-msg.pending { color: var(--muted); font-style: italic; }
 cqa-app .assist-msg.err { border-color: var(--bad); color: var(--bad); }
