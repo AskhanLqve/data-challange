@@ -85,7 +85,7 @@ async function ollamaJSON({ system, user, schema }) {
       model: MODEL,
       stream: false,
       format: z.toJSONSchema(schema),
-      options: { temperature: 0, num_ctx: 16384 },
+      options: { temperature: 0, num_ctx: Number(process.env.OLLAMA_NUM_CTX || 12288) },
       messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
     }),
     signal: AbortSignal.timeout(15 * 60_000),
