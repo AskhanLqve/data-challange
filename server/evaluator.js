@@ -7,17 +7,24 @@ import { db, newId } from './db.js';
 const RUNS = Math.max(1, Number(process.env.CQA_RUNS || 1)); // >1 — голосование нескольких прогонов
 const LANG_NAMES = { RU: 'русский', KZ: 'казахский', EN: 'английский' };
 
-const ResultSchema = z.object({
-  criteria: z.array(z.object({
-    criterion_id: z.string(),
-    answer: z.string().describe('yes | no | na | значение ступени шкалы'),
+/**
+ * Схема ответа строится из чек-листа: у каждого критерия своё поле, допустимые ответы — enum.
+ * Генерация ограничивается схемой (Ollama grammar / Claude structured outputs), поэтому модель
+ * физически не может поставить, например, балл шкалы в критерий «Да/Нет».
+ */
+export function buildResultSchema(checklist) {
+  const item = (c) => z.object({
+    answer: z.enum(allowedAnswers(c)),
     explanation: z.string(),
     evidence: z.array(z.object({ message: z.number().int(), quote: z.string() })),
     checked_from: z.number().int().nullable(),
     checked_to: z.number().int().nullable(),
-  })),
-  summary: z.string(),
-});
+  }).describe(`${c.code ? c.code + '. ' : ''}${c.name}`);
+  return z.object({
+    criteria: z.object(Object.fromEntries(checklist.criteria.map((c) => [c.id, item(c)]))),
+    summary: z.string(),
+  });
+}
 
 function fmtClock(sec) {
   if (sec == null) return '?';
@@ -48,7 +55,7 @@ export function buildSystemPrompt(checklist) {
     checklist.general_rules || '',
     '',
     '## Как отвечать',
-    '- Оцени КАЖДЫЙ критерий из списка ниже, используя его id. Ничего не добавляй и не пропускай.',
+    '- Поле criteria содержит по одному ключу на каждый критерий — его id в квадратных скобках ниже. Оценивай каждый критерий отдельно, только по его собственному условию; не переноси ответ с другого критерия.',
     '- answer — строго одно из допустимых значений критерия.',
     '- explanation — 1–3 предложения про ЭТОТ критерий: «<название критерия> — <ответ>. <что сделал или не сделал оператор>. Основание — <какие реплики>.» Пример для критерия «Завершение»: «Завершение — Нет. После ответа оператор закрыл чат без прощания. Основание — последняя реплика оператора и сообщение о закрытии чата.»',
     '- evidence — номера реплик (#N из транскрипта) и короткая точная цитата из них, подтверждающая вывод. Если действие пропущено — укажи реплику, где оно ожидалось.',
@@ -65,6 +72,8 @@ export function buildSystemPrompt(checklist) {
 export function buildUserPrompt(conv) {
   const t = conv.transcript;
   const firstOp = t.find((m) => m.speaker === 'operator');
+  const lastOp = [...t].reverse().find((m) => m.speaker === 'operator');
+  const lastAny = t[t.length - 1];
   // Чаты: исходная метка MM:SS. Звонки (ISO 8601): смещение от начала разговора — короче и понятнее модели.
   const isIso = (ts) => /^\d{4}-\d{2}-\d{2}T/.test(String(ts));
   const stamp = (m) => (isIso(m.timestamp) && m.offset_sec != null ? `+${fmtClock(m.offset_sec)}` : m.timestamp);
@@ -79,7 +88,8 @@ export function buildUserPrompt(conv) {
   }
   return [
     `Диалог ${conv.conversation_id}. Канал: ${conv.channel}. Язык клиента: ${conv.language} (${LANG_NAMES[conv.language] || conv.language}).`,
-    firstOp ? `Первое сообщение оператора: #${firstOp.idx}.` : 'Оператор в диалоге не писал.',
+    firstOp ? `Первое сообщение оператора: #${firstOp.idx} «${firstOp.text}».` : 'Оператор в диалоге не писал.',
+    lastOp && lastOp !== firstOp ? `Последнее сообщение оператора: #${lastOp.idx} «${lastOp.text}».${lastAny !== lastOp ? ` После него: #${lastAny.idx} ${lastAny.speaker.toUpperCase()}.` : ''}` : '',
     pauses.length ? `Паузы оператора ≥ 1.5 мин после реплики клиента: ${pauses.join('; ')}.` : 'Пауз оператора ≥ 1.5 мин после реплики клиента нет.',
     '',
     '<transcript>',
@@ -92,7 +102,9 @@ export function buildUserPrompt(conv) {
 
 export function validateRun(checklist, conv, parsed) {
   const maxIdx = conv.transcript.length;
-  const byId = new Map(parsed.criteria.map((c) => [c.criterion_id, c]));
+  const byId = Array.isArray(parsed.criteria)
+    ? new Map(parsed.criteria.map((c) => [c.criterion_id, c]))
+    : new Map(Object.entries(parsed.criteria || {}));
   const out = {};
   for (const c of checklist.criteria) {
     const r = byId.get(c.id);
@@ -133,7 +145,8 @@ export async function evaluateConversation(conv, checklist, { runs = RUNS } = {}
   const system = buildSystemPrompt(checklist);
   const user = buildUserPrompt(conv);
   const started = Date.now();
-  const calls = await Promise.all(Array.from({ length: runs }, () => completeJSON({ system, user, schema: ResultSchema })));
+  const schema = buildResultSchema(checklist);
+  const calls = await Promise.all(Array.from({ length: runs }, () => completeJSON({ system, user, schema })));
   const validated = calls.map((r) => validateRun(checklist, conv, r.parsed));
   const merged = runs > 1 ? vote(checklist, validated) : Object.fromEntries(Object.entries(validated[0]).map(([k, v]) => [k, { ...v, agreement: 1 }]));
 

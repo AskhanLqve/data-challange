@@ -150,7 +150,7 @@ route('GET', '/api/conversations/:id', ({ p }) => {
     .map((e) => ({ id: e.id, created_at: e.created_at, total: e.final_score.total, checklist_name: e.checklist.name, checklist_version: e.checklist_version, status: e.status }));
   return { ...c, evaluations: evs };
 });
-route('DELETE', '/api/conversations/:id', ({ p }) => ({ deleted: db.remove('conversations', p.id) }));
+route('DELETE', '/api/conversations/:id', ({ p }) => ({ deleted: db.remove('conversations', decodeURIComponent(p.id), 'conversation_id') }));
 
 // Аудио: перенаправление на свежую подписанную ссылку mp3
 route('GET', '/api/audio/:id', async ({ p, res }) => {

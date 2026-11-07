@@ -53,9 +53,9 @@ export const db = {
     persist(name);
     return doc;
   },
-  remove(name, id) {
+  remove(name, id, key = 'id') {
     const list = load(name);
-    const i = list.findIndex((x) => x.id === id);
+    const i = list.findIndex((x) => x[key] === id);
     if (i >= 0) { list.splice(i, 1); persist(name); return true; }
     return false;
   },
