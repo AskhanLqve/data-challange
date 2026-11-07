@@ -1,24 +1,24 @@
 /* Все стили ограничены тегом cqa-app — компонент можно встроить в Dynamics 365 без конфликтов. */
 cqa-app [hidden] { display: none !important; }
 cqa-app {
-  /* Стилистика в духе uniq.com.kz: светлый фон, яркий синий, Geist, шапка-пилюля, круглые кнопки, радиус 1.2rem. */
-  --brand: #0a6cff; --brand-dark: #0057d9; --brand-deep: #0a2db6; --brand-soft: #e8f1ff;
-  --bg: #f9f9fa; --panel: #fff; --ink: #10131a; --muted: #5b6474; --line: #e4e8ef;
-  --accent: var(--brand); --accent-soft: var(--brand-soft); --ok: #12a150; --ok-soft: #e4f6ec; --bad: #e5484d; --bad-soft: #fdecec;
-  --na: #6b7383; --na-soft: #eef1f5; --warn: #a15c00; --warn-soft: #fff3df; --hl: #e8f1ff;
-  --client: #fff; --operator: #f2f7ff; --bot: #f6f6f9; --system: transparent;
-  --radius: 1.2rem; --shadow: 0 1px 2px rgba(16,19,26,.04), 0 8px 24px rgba(16,19,26,.06);
+  /* Палитра Freedom Broker (fbroker.kz): #00B323 / #13AD64 / #00E183 / #FFA700 / #FF3A38 / #0C1411; серые #6A788A, #B2BCC8, #F0F2F5. */
+  --brand: #00b323; --brand-dark: #13ad64; --brand-deep: #0c1411; --brand-soft: #dff5ec;
+  --bg: #f0f2f5; --panel: #fff; --ink: #0c1411; --muted: #6a788a; --line: #e7e7ea;
+  --accent: var(--brand); --accent-soft: var(--brand-soft); --ok: #13ad64; --ok-soft: #dff5ec; --bad: #ff3a38; --bad-soft: #ffeceb;
+  --na: #6a788a; --na-soft: #f0f2f5; --warn: #b87800; --warn-soft: #fff4dc; --hl: #dff5ec;
+  --client: #fff; --operator: #f2fbf6; --bot: #f5f5f5; --system: transparent;
+  --radius: 1.2rem; --shadow: 0 1px 2px rgba(12,20,17,.04), 0 8px 24px rgba(12,20,17,.06);
   --s-title: 1.5rem; --s-body: 0.9375rem; --s-meta: 0.8125rem; --s-big: 2.75rem;
   display: block; font: 400 var(--s-body)/1.55 "Geist", -apple-system, "Segoe UI", Roboto, sans-serif;
   font-variant-numeric: tabular-nums; color: var(--ink); background: var(--bg); min-height: 100vh;
 }
 @media (prefers-color-scheme: dark) {
   cqa-app {
-    --brand: #2f84ff; --brand-dark: #4d97ff; --brand-deep: #8fb6ff; --brand-soft: #0f2346;
-    --bg: #050914; --panel: #0b1120; --ink: #eef2fb; --muted: #9aa6bd; --line: #1a2440;
-    --ok: #3ccf7f; --ok-soft: #10301f; --bad: #ff6b70; --bad-soft: #3a1a1d;
-    --na: #9aa6bd; --na-soft: #141c30; --warn: #f0b44c; --warn-soft: #33270f; --hl: #0f2346;
-    --client: #0b1120; --operator: #0e1a33; --bot: #10162a; --system: transparent;
+    --brand: #00b323; --brand-dark: #00e183; --brand-deep: #f0f2f5; --brand-soft: #123322;
+    --bg: #0c1411; --panel: #131d19; --ink: #f0f2f5; --muted: #b2bcc8; --line: #22302a;
+    --ok: #00e183; --ok-soft: #123322; --bad: #ff5a58; --bad-soft: #3a1a19;
+    --na: #b2bcc8; --na-soft: #18241f; --warn: #ffa700; --warn-soft: #33270a; --hl: #123322;
+    --client: #131d19; --operator: #15281e; --bot: #18241f; --system: transparent;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
   }
 }
@@ -26,7 +26,7 @@ cqa-app * { box-sizing: border-box; }
 cqa-app button, cqa-app input, cqa-app select, cqa-app textarea { font: inherit; color: inherit; }
 cqa-app .topbar { display: flex; align-items: center; gap: 1.1rem; padding: 0.5rem 0.6rem 0.5rem 1rem; margin: 0.75rem auto 0; max-width: 1460px; width: calc(100% - 2rem); background: color-mix(in srgb, var(--panel) 85%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); color: var(--ink); border: 1px solid var(--line); border-radius: 1.1rem; box-shadow: var(--shadow); position: sticky; top: 0.75rem; z-index: 20; flex-wrap: wrap; }
 cqa-app .brand { font-weight: 700; display: flex; align-items: center; gap: 0.6rem; color: var(--ink); text-decoration: none; }
-cqa-app .brand .mark { width: 1.75rem; height: 1.75rem; border-radius: 0.55rem; background: #0a6cff; display: grid; place-items: center; }
+cqa-app .brand .mark { width: 1.75rem; height: 1.75rem; border-radius: 0.55rem; background: #00b323; display: grid; place-items: center; }
 cqa-app .brand .mark svg { width: 1rem; height: 1rem; }
 cqa-app .brand small { color: var(--muted); font-weight: 500; margin-left: 6px; }
 cqa-app nav { display: flex; gap: 4px; }
@@ -155,7 +155,7 @@ cqa-app .score { font-variant-numeric: tabular-nums; }
 cqa-app :focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { cqa-app * { transition: none !important; scroll-behavior: auto !important; } }
 
-/* uniq-стиль: синие галочки, мягкие поля ввода, таблица без рамок */
+/* Форма элементов: мягкие поля, круглые теги, мягкие поля ввода, таблица без рамок */
 cqa-app input[type=text], cqa-app input[type=number], cqa-app input[type=search], cqa-app select, cqa-app textarea { border-radius: 0.8rem; padding: 0.5rem 0.8rem; }
 cqa-app .tag { border-radius: 999px; padding: 0.12rem 0.65rem; }
 cqa-app .tag.blue { background: var(--brand-soft); color: var(--brand); }

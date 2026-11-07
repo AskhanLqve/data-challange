@@ -22,7 +22,7 @@
     return el;
   }
   const appendAll = (el, ...kids) => el.append(...kids.flat(Infinity).filter((k) => k != null && k !== false));
-  const fmt = (x, d = 2) => (x == null ? '—' : Number(x).toFixed(d).replace(/\.?0+$/, '') || '0');
+  const fmt = (x, d = 2) => (x == null ? '—' : Number(x).toLocaleString('ru-RU', { maximumFractionDigits: d }));
   const fmtDate = (s) => (s ? new Date(s).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' }) : '');
   const clock = (sec) => { if (sec == null) return ''; const s = Math.round(sec); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
   const LANG = { RU: 'RU', KZ: 'KZ', EN: 'EN' };
@@ -50,7 +50,7 @@
   class CqaApp extends HTMLElement {
     connectedCallback() {
       this.api = (this.getAttribute('api-base') || window.CQA_API_BASE || '').replace(/\/$/, '');
-      this.state = { checklists: [], health: null, jobs: {}, selected: new Set(), filters: { q: '', lang: '', channel: '', group: '' } };
+      this.state = { checklists: [], health: null, jobs: {}, selected: new Set(), filters: { q: '', lang: '', channel: '', group: (() => { try { return localStorage.getItem('cqa.group') || ''; } catch { return ''; } })() } };
       window.addEventListener('hashchange', () => this.render());
       this.init();
     }
@@ -109,7 +109,7 @@
         h('label', { class: 'row small muted' }, 'Чек-лист:',
           h('select', { onchange: (e) => { this.state.checklistId = e.target.value; localStorage.setItem('cqa.checklist', e.target.value); this.render(); } },
             this.state.checklists.map((c) => h('option', { value: c.id, selected: c.id === this.state.checklistId ? 'selected' : null }, `${c.name} · v${c.version}`)))),
-        hlth ? h('span', { class: 'model-badge' + (hlth.configured ? '' : ' off'), title: hlth.configured ? 'Модель оценки' : 'Ключ API не задан — оценка недоступна' }, `${hlth.provider}: ${hlth.model}${hlth.effort ? ' · ' + hlth.effort : ''}${hlth.configured ? '' : ' · нет ключа'}`) : null,
+        hlth ? h('span', { class: 'model-badge' + (hlth.configured ? '' : ' off'), title: hlth.configured ? 'Модель оценки' : 'Ключ API не задан — оценка недоступна' }, `Модель: ${hlth.model}${hlth.provider === 'ollama' ? ' (локально)' : hlth.provider === 'anthropic' ? ' (облако)' : ''}${hlth.configured ? '' : ', нет ключа'}`) : null,
       );
     }
 
@@ -132,6 +132,7 @@
     async viewList(view) {
       const [convs, groups] = await Promise.all([this.req('GET', '/api/conversations'), this.req('GET', '/api/groups')]);
       const f = this.state.filters;
+      if (f.group && !groups.some((g) => g.group_id === f.group)) f.group = ''; // набора нет — показываем все
       const cl = this.checklist;
 
       const groupInput = h('input', { type: 'text', placeholder: 'group_id, напр. DEV', value: localStorage.getItem('cqa.group') || 'DEV', style: { width: '160px' } });
@@ -189,7 +190,7 @@
           h('td', {}, ev ? h('span', { class: 'tag ' + (ev.status === 'appealed' ? 'warn' : ev.status === 'reviewed' ? 'yes' : '') }, { evaluated: 'оценён', appealed: 'апелляция', reviewed: 'пересмотрен' }[ev.status] || ev.status) : null)));
       }
 
-      const select = (key, opts, label) => h('select', { onchange: (e) => { f[key] = e.target.value; this.render(); } },
+      const select = (key, opts, label) => h('select', { onchange: (e) => { f[key] = e.target.value; if (key === 'group') { try { localStorage.setItem('cqa.group', f.group); } catch { /* ignore */ } } this.render(); } },
         h('option', { value: '' }, label), opts.map(([v, t]) => h('option', { value: v, selected: f[key] === v ? 'selected' : null }, t)));
       const search = h('input', { type: 'search', placeholder: 'Поиск по ID и тексту', value: f.q, oninput: (e) => { f.q = e.target.value; clearTimeout(this._t); this._t = setTimeout(() => { this.render().then(() => { const s = this.querySelector('input[type=search]'); s?.focus(); s?.setSelectionRange(s.value.length, s.value.length); }); }, 300); } });
 
@@ -225,7 +226,7 @@
               h('span', { class: 'muted small' }, `${filtered.length} из ${convs.length}`, avg != null ? `, средний итог ${fmt(avg)}` : ''),
               h('div', { class: 'spacer' }),
               h('button', { class: 'btn', onclick: () => sel.size ? runBatch([...sel], false) : this.toast('Отметьте диалоги галочками', true) }, `Оценить выбранные (${sel.size})`),
-              h('button', { class: 'btn primary', onclick: () => runBatch(filtered.map((c) => c.conversation_id), true), title: 'Пропустит диалоги, уже оценённые текущей версией чек-листа' }, `Оценить все показанные — «${cl?.name || ''} v${cl?.version || ''}»`)),
+              h('button', { class: 'btn primary', onclick: () => runBatch(filtered.map((c) => c.conversation_id), true), title: 'Пропустит диалоги, уже оценённые текущей версией чек-листа' }, `Оценить все показанные (${filtered.length})`)),
             jobBox,
             filtered.length ? h('div', { class: 'table-wrap' }, h('table', {},
               h('thead', {}, h('tr', {}, h('th', {}, allBox), h('th', {}, 'Диалог'), h('th', {}, 'Язык'), h('th', {}, 'Канал'), h('th', {}, 'Запрос клиента'), h('th', {}, 'Итог'), h('th', {}, 'Статус'))),
@@ -315,8 +316,8 @@
           this.toast(`Готово: ${fmt(r.final_score.total)} баллов · $${fmt(r.cost_usd, 4)} · ${Math.round(r.duration_ms / 1000)} с`);
           this.go(`#/c/${encodeURIComponent(conv.conversation_id)}?ev=${r.id}`);
         });
-        evalBtn.disabled = false; evalBtn.textContent = 'Оценить';
-      } }, ev ? `Переоценить — «${cl.name} v${cl.version}»` : `Оценить — «${cl.name} v${cl.version}»`);
+        evalBtn.disabled = false; evalBtn.textContent = ev ? 'Переоценить' : 'Оценить';
+      }, title: `Чек-лист «${cl.name}» v${cl.version}` }, ev ? 'Переоценить' : 'Оценить');
 
       right.append(h('div', { class: 'panel' },
         h('div', { class: 'row' },
@@ -395,7 +396,7 @@
           ai.evidence?.length ? h('div', {}, ai.evidence.map((e) => h('button', { class: 'ev', title: 'Перейти к реплике', onclick: () => jump(e.message, ai.checked_range) },
             h('b', {}, `#${e.message}`), h('span', {}, `${ROLE[e.speaker] || ''}: «${e.quote}»`)))) : null,
           ai.checked_range ? h('div', { class: 'small', style: { marginTop: '4px' } },
-            h('a', { href: 'javascript:void 0', onclick: () => jump(ai.checked_range.from, ai.checked_range) }, `Проверенный участок: реплики #${ai.checked_range.from}–#${ai.checked_range.to}`)) : null,
+            h('a', { href: 'javascript:void 0', onclick: () => jump(ai.checked_range.from, ai.checked_range) }, ai.checked_range.from === ai.checked_range.to ? `Проверенный участок: реплика #${ai.checked_range.from}` : `Проверенный участок: реплики #${ai.checked_range.from}–#${ai.checked_range.to}`)) : null,
           ai.warning ? h('div', { class: 'small', style: { color: 'var(--warn)' } }, '⚠ ', ai.warning) : null,
           ai.agreement != null && ev.runs > 1 ? h('div', { class: 'small muted' }, `согласие прогонов: ${Math.round(ai.agreement * 100)}% (${(ai.votes || []).join(', ')})`) : null,
           r.review ? h('div', { class: 'review' },

@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>CQA — контроль качества диалогов</title>
 <meta name="description" content="Conversation Quality Analytics: ИИ оценивает работу операторов по чек-листу, каждый балл опирается на реплику из диалога.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%279%27 fill=%27%2300b323%27/%3E%3Cpath d=%27M9 16.5l4.5 4.5L23 11.5%27 stroke=%27white%27 stroke-width=%273%27 fill=%27none%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E">
+<meta name="theme-color" content="#00b323">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -12,23 +14,25 @@
   /* Стилистика в духе uniq.com.kz: светлый фон, яркий синий, Geist, крупная плотная типографика,
      плавающая шапка-пилюля, круглые кнопки, мягкие голубые свечения. Контент и макеты — свои. */
   :root {
-    --bg: #f9f9fa; --surface: #ffffff; --surface-2: #f3f5f9; --ink: #10131a; --ink-2: #5b6474; --ink-3: #9aa1ad;
-    --blue: #0a6cff; --blue-hover: #0057d9; --blue-deep: #0a2db6; --blue-soft: #e8f1ff; --cyan: #19c3f0; --violet: #6b4ef0;
-    --line: #e4e8ef; --ok: #12a150; --bad: #e5484d; --radius: 1.2rem;
-    --shadow: 0 1px 2px rgba(16,19,26,.04), 0 8px 24px rgba(16,19,26,.06);
+    /* Палитра Freedom Broker (fbroker.kz): brand-primary #00B323, secondary #13AD64, additional #00E183,
+       accent #FFA700, tertiary #FF3A38, dark-primary #0C1411, текст #323335, серые #6A788A/#B2BCC8/#F0F2F5 */
+    --bg: #f0f2f5; --surface: #ffffff; --surface-2: #f5f5f5; --ink: #0c1411; --ink-2: #6a788a; --ink-3: #b2bcc8;
+    --blue: #00b323; --blue-hover: #13ad64; --blue-deep: #0c1411; --blue-soft: #dff5ec; --cyan: #00e183; --violet: #ffa700;
+    --line: #e7e7ea; --ok: #13ad64; --bad: #ff3a38; --radius: 1.2rem;
+    --shadow: 0 1px 2px rgba(12,20,17,.04), 0 8px 24px rgba(12,20,17,.06);
     color-scheme: light;
   }
   :root[data-theme="dark"] {
-    --bg: #050914; --surface: #0b1120; --surface-2: #111a2e; --ink: #eef2fb; --ink-2: #9aa6bd; --ink-3: #5d6880;
-    --blue: #2f84ff; --blue-hover: #4d97ff; --blue-deep: #8fb6ff; --blue-soft: #0f2346; --line: #1a2440;
-    --ok: #3ccf7f; --bad: #ff6b70; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+    --bg: #0c1411; --surface: #131d19; --surface-2: #18241f; --ink: #f0f2f5; --ink-2: #b2bcc8; --ink-3: #6a788a;
+    --blue: #00b323; --blue-hover: #00e183; --blue-deep: #00e183; --blue-soft: #123322; --line: #22302a;
+    --ok: #00e183; --bad: #ff5a58; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
     color-scheme: dark;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #050914; --surface: #0b1120; --surface-2: #111a2e; --ink: #eef2fb; --ink-2: #9aa6bd; --ink-3: #5d6880;
-      --blue: #2f84ff; --blue-hover: #4d97ff; --blue-deep: #8fb6ff; --blue-soft: #0f2346; --line: #1a2440;
-      --ok: #3ccf7f; --bad: #ff6b70; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+      --bg: #0c1411; --surface: #131d19; --surface-2: #18241f; --ink: #f0f2f5; --ink-2: #b2bcc8; --ink-3: #6a788a;
+      --blue: #00b323; --blue-hover: #00e183; --blue-deep: #00e183; --blue-soft: #123322; --line: #22302a;
+      --ok: #00e183; --bad: #ff5a58; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
       color-scheme: dark;
     }
   }
@@ -79,20 +83,20 @@
 
   /* «устройство»: карточка оценки с всплывающими чипами */
   .device-wrap { position: relative; display: grid; place-items: center; min-height: 32rem; }
-  .device { width: min(23rem, 100%); background: #0b1120; color: #eef2fb; border-radius: 2.2rem; padding: 1.1rem; border: 6px solid #1a2440;
-    box-shadow: 0 40px 80px rgba(10,45,182,.25), 0 0 0 1px rgba(255,255,255,.04) inset; transform: rotate(-5deg); }
-  .device .top { display: flex; justify-content: space-between; font-size: 0.6875rem; color: #8b97b0; padding: 0.2rem 0.4rem 0.8rem; }
+  .device { width: min(23rem, 100%); background: #0c1411; color: #f0f2f5; border-radius: 2.2rem; padding: 1.1rem; border: 6px solid #22302a;
+    box-shadow: 0 40px 80px rgba(0,179,35,.22), 0 0 0 1px rgba(255,255,255,.04) inset; transform: rotate(-5deg); }
+  .device .top { display: flex; justify-content: space-between; font-size: 0.6875rem; color: #6a788a; padding: 0.2rem 0.4rem 0.8rem; }
   .device .hello { padding: 0 0.4rem; font-weight: 600; font-size: 1rem; }
-  .device .hello small { display: block; font-weight: 400; font-size: 0.6875rem; color: #8b97b0; }
-  .device .score { margin: 0.8rem 0; padding: 1rem; border-radius: 1.1rem; background: linear-gradient(135deg, #0a6cff, #0a2db6); }
+  .device .hello small { display: block; font-weight: 400; font-size: 0.6875rem; color: #6a788a; }
+  .device .score { margin: 0.8rem 0; padding: 1rem; border-radius: 1.1rem; background: linear-gradient(135deg, #00b323, #13ad64); }
   .device .score b { font-size: 2.4rem; letter-spacing: -0.04em; line-height: 1; display: block; }
   .device .score span { font-size: 0.75rem; opacity: .85; }
-  .device .row { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; padding: 0.6rem 0.7rem; border-radius: 0.8rem; background: #111a2e; margin-top: 0.4rem; font-size: 0.75rem; }
+  .device .row { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; padding: 0.6rem 0.7rem; border-radius: 0.8rem; background: #18241f; margin-top: 0.4rem; font-size: 0.75rem; }
   .device .row em { font-style: normal; font-weight: 600; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.6875rem; }
-  .device .row em.y { background: rgba(60,207,127,.15); color: #3ccf7f; }
-  .device .row em.n { background: rgba(255,107,112,.15); color: #ff8a8e; }
-  .device .row em.na { background: rgba(154,166,189,.15); color: #b6c0d4; }
-  .device .row em.s { background: rgba(47,132,255,.18); color: #8fb6ff; }
+  .device .row em.y { background: rgba(0,225,131,.14); color: #00e183; }
+  .device .row em.n { background: rgba(255,58,56,.16); color: #ff6b69; }
+  .device .row em.na { background: rgba(178,188,200,.14); color: #b2bcc8; }
+  .device .row em.s { background: rgba(0,179,35,.18); color: #00e183; }
   .chip { position: absolute; display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem; font-weight: 500; color: var(--ink);
     background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(10px); border: 1px solid var(--line); padding: 0.55rem 0.9rem; border-radius: 999px; box-shadow: var(--shadow); }
   .chip svg { width: 1rem; height: 1rem; color: var(--blue); flex: none; }
@@ -139,7 +143,7 @@
   /* возможности */
   .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-top: 3rem; }
   .feature { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.6rem; }
-  .feature.wide { grid-column: span 2; background: linear-gradient(135deg, var(--blue), var(--blue-deep)); color: #fff; border-color: transparent; }
+  .feature.wide { grid-column: span 2; background: linear-gradient(135deg, #00b323, #0c1411 120%); color: #fff; border-color: transparent; }
   .feature.wide p { color: rgba(255,255,255,.82); }
   .feature .ico { width: 2.75rem; height: 2.75rem; border-radius: 0.9rem; display: grid; place-items: center; background: var(--blue-soft); color: var(--blue); margin-bottom: 1.1rem; }
   .feature.wide .ico { background: rgba(255,255,255,.16); color: #fff; }
@@ -181,10 +185,12 @@
   .faq details[open] summary::after { transform: rotate(45deg); }
   .faq p { padding: 0 0 1.4rem; color: var(--ink-2); max-width: 46rem; }
 
-  .cta { position: relative; overflow: hidden; border-radius: 2rem; padding: 4rem 3rem; background: linear-gradient(135deg, var(--blue), var(--blue-deep)); color: #fff; display: flex; justify-content: space-between; align-items: center; gap: 2rem; flex-wrap: wrap; }
+  .cta { position: relative; overflow: hidden; border-radius: 2rem; padding: 4rem 3rem; background: #0c1411; color: #fff; display: flex; justify-content: space-between; align-items: center; gap: 2rem; flex-wrap: wrap; }
   .cta h2 { font-size: clamp(2rem, 4vw, 3.4rem); letter-spacing: -0.045em; line-height: 1.02; }
   .cta p { margin-top: 0.9rem; color: rgba(255,255,255,.8); }
-  .cta .btn { background: #fff; color: var(--blue-deep); border-color: #fff; }
+  .cta .btn { background: #00b323; color: #fff; border-color: #00b323; }
+  .cta .btn:hover { background: #13ad64; }
+  .cta h2 span { color: #00e183; }
   footer { padding-block: 3rem calc(3rem + env(safe-area-inset-bottom, 0px)); color: var(--ink-2); font-size: 0.875rem; }
   footer .wrap { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 
@@ -215,7 +221,7 @@
 <div class="nav-shell">
   <header class="nav">
     <a class="brand" href="#">
-      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#0a6cff"/><path d="M9 16.5l4.5 4.5L23 11.5" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#00b323"/><path d="M9 16.5l4.5 4.5L23 11.5" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
       CQA
     </a>
     <nav aria-label="Разделы">
@@ -264,7 +270,7 @@
           <div class="row">07 Завершение <em class="n">Нет</em></div>
         </div>
         <div class="chip c1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>#10 <q>Здравствуйте! Меня зовут Алина.</q></div>
-        <div class="chip c2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>Оценка за 40 секунд</div>
+        <div class="chip c2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>Оценка около минуты</div>
         <div class="chip c3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Апелляция принята, итог пересчитан</div>
       </div>
     </div>
@@ -423,7 +429,7 @@
 
   <div class="wrap">
     <div class="cta">
-      <div><h2>Проверьте свой набор диалогов.</h2><p>Набор DEV: 65 диалогов — чаты на трёх языках и реальные звонки.</p></div>
+      <div><h2>Проверьте свой набор <span>диалогов.</span></h2><p>Набор DEV: 65 диалогов — чаты на трёх языках и реальные звонки.</p></div>
       <a class="btn big" data-app-link href="app.html">Открыть приложение</a>
     </div>
   </div>
