@@ -45,7 +45,7 @@ export function providerInfo() {
  * Один вызов модели со структурированным ответом.
  * @returns {Promise<{parsed:any, usage:any, model:string, cost_usd:number, stop_reason:string, text:string}>}
  */
-const RETRIES = Math.max(0, Number(process.env.CQA_LLM_RETRIES ?? 2));
+const RETRIES = Math.max(0, Number(process.env.CQA_LLM_RETRIES ?? 3));
 
 /** Готов ли провайдер: для Ollama — сервер отвечает и модель скачана. */
 export async function providerReady() {
@@ -67,8 +67,10 @@ export async function completeJSON(args) {
       lastErr = e;
       const fatal = /refusal|ключ|API key|401|403|не скачана/i.test(String(e.message));
       if (fatal || attempt === RETRIES) break;
+      // обрыв связи — обычно Ollama перезапускается (например, после нехватки памяти) и заново грузит модель: ждём дольше
+      const down = /fetch failed|ECONNREFUSED|ECONNRESET|socket/i.test(String(e.message) + String(e.cause?.code || ''));
       console.warn(`[llm] попытка ${attempt + 1} не удалась: ${e.message}. Повтор…`);
-      await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+      await new Promise((r) => setTimeout(r, (down ? 10_000 : 1500) * (attempt + 1)));
     }
   }
   throw lastErr;
