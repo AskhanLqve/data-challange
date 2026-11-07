@@ -43,7 +43,36 @@ export function providerInfo() {
  * Один вызов модели со структурированным ответом.
  * @returns {Promise<{parsed:any, usage:any, model:string, cost_usd:number, stop_reason:string, text:string}>}
  */
-export async function completeJSON({ system, user, schema }) {
+const RETRIES = Math.max(0, Number(process.env.CQA_LLM_RETRIES ?? 2));
+
+/** Готов ли провайдер: для Ollama — сервер отвечает и модель скачана. */
+export async function providerReady() {
+  if (PROVIDER === 'stub') return { ready: true };
+  if (PROVIDER === 'anthropic') return providerInfo().configured ? { ready: true } : { ready: false, problem: 'Не задан ANTHROPIC_API_KEY' };
+  try {
+    const r = await fetch(`${OLLAMA_URL}/api/tags`, { signal: AbortSignal.timeout(3000) });
+    const tags = (await r.json()).models?.map((m) => m.name) || [];
+    if (!tags.some((t) => t === MODEL || t === `${MODEL}:latest`)) return { ready: false, problem: `Модель ${MODEL} не скачана: ollama pull ${MODEL}` };
+    return { ready: true };
+  } catch { return { ready: false, problem: `Ollama не отвечает на ${OLLAMA_URL}: запустите ollama serve` }; }
+}
+
+export async function completeJSON(args) {
+  // Повтор при сбое: битый JSON, таймаут, временная ошибка сети/модели.
+  let lastErr;
+  for (let attempt = 0; attempt <= RETRIES; attempt++) {
+    try { return await completeOnce(args); } catch (e) {
+      lastErr = e;
+      const fatal = /refusal|ключ|API key|401|403|не скачана/i.test(String(e.message));
+      if (fatal || attempt === RETRIES) break;
+      console.warn(`[llm] попытка ${attempt + 1} не удалась: ${e.message}. Повтор…`);
+      await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+    }
+  }
+  throw lastErr;
+}
+
+async function completeOnce({ system, user, schema }) {
   if (PROVIDER === 'ollama') return ollamaJSON({ system, user, schema });
   if (PROVIDER === 'stub') return stubJSON({ schema });
   return anthropicJSON({ system, user, schema });
@@ -86,7 +115,9 @@ async function ollamaJSON({ system, user, schema }) {
       model: MODEL,
       stream: false,
       format: z.toJSONSchema(schema),
-      options: { temperature: 0, num_ctx: Number(process.env.OLLAMA_NUM_CTX || 12288) },
+      // temperature 0 + seed — воспроизводимая оценка; ответ одного критерия короткий, длину ограничиваем
+      options: { temperature: 0, seed: 42, num_ctx: Number(process.env.OLLAMA_NUM_CTX || 12288), num_predict: Number(process.env.OLLAMA_NUM_PREDICT || 2048) },
+      keep_alive: process.env.OLLAMA_KEEP_ALIVE || '30m', // модель остаётся в памяти между диалогами
       messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
     }),
     signal: AbortSignal.timeout(15 * 60_000),

@@ -4,28 +4,38 @@
 
 ## Быстрый старт
 
-Нужны Node.js 20.6 или новее и pnpm.
+Нужны Node.js 20.6+ и pnpm (`npm i -g pnpm` или `corepack enable`).
+
+**1. Модель оценки** — выберите одну:
+
+```bash
+# Вариант А — локально и бесплатно (так работает демо): Ollama + Qwen 2.5 7B
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull qwen2.5:7b-instruct
+
+# Вариант Б — облако: ключ Anthropic (Claude Opus 5.5), впишите его в .env
+```
+
+**2. Запуск**
 
 ```bash
 pnpm install
-cp .env.example .env          # впишите ANTHROPIC_API_KEY
+cp .env.example .env          # для Ollama: CQA_PROVIDER=ollama, CQA_MODEL=qwen2.5:7b-instruct
 pnpm start                    # лендинг: http://localhost:3000, приложение: http://localhost:3000/app.html
 ```
 
-Как начать работу:
+**3. Первые шаги в приложении:** «Диалоги» → `group_id` = `DEV` → «Загрузить из API» → «Оценить все показанные».
+Откройте любой диалог — экран «Анализ разговора».
 
-1. Откройте http://localhost:3000/app.html (или главную http://localhost:3000 → «Открыть приложение»).
-2. Введите `group_id` (например `DEV`) и нажмите **«Загрузить из API»**.
-3. Нажмите **«Оценить все показанные»** или откройте диалог и нажмите **«Оценить»**.
+**Как проверить, что всё работает**
 
-Пакетная оценка из терминала, например для контрольного набора:
+| Команда | Что проверяет | Нужна модель |
+|---|---|---|
+| `pnpm test` | расчёт баллов, API, формат results.json (19 тестов) | нет |
+| `pnpm eval` | точность ИИ на эталонной разметке (26 диалогов DEV + 16 пограничных случаев) → `eval/LATEST.md` | да |
+| `pnpm results --group DEV --set dev` | выгрузка результатов в формате организаторов с проверкой | нет (берёт готовые оценки) |
 
-```bash
-pnpm batch --group <CONTROL_GROUP_ID>          # оценки сохранятся и появятся в UI
-# результаты также пишутся в results/<group>.json и results/<group>.csv
-```
-
-Тесты: `pnpm test` (расчёт баллов, API, формат результатов).
+Пакетная оценка набора из терминала: `pnpm batch --group <group_id>`.
 
 ## Сдача результатов (формат организаторов, Results JSON 1.0)
 

@@ -5,8 +5,8 @@ import path from 'node:path';
 import { db, newId } from './db.js';
 import { DEFAULT_CHECKLIST } from './defaultChecklist.js';
 import { fetchGroup, extractRecords, importRecords, resolveAudio } from './dataset.js';
-import { evaluateConversation, recomputeFinal, startBatch, getJob, listJobs, publicJob, resumeJobs } from './evaluator.js';
-import { providerInfo } from './llm.js';
+import { evaluateConversation, recomputeFinal, startBatch, getJob, listJobs, publicJob, resumeJobs, saveEvaluation, migrateTraces } from './evaluator.js';
+import { providerInfo, providerReady } from './llm.js';
 import { allowedAnswers, answerLabel } from './scoring.js';
 import { buildResults, validateResults } from './results.js';
 
@@ -83,7 +83,7 @@ function csvEscape(v) { const s = v == null ? '' : String(v); return /[",\n;]/.t
 const routes = [];
 const route = (method, pattern, handler) => routes.push({ method, re: new RegExp('^' + pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)') + '$'), handler });
 
-route('GET', '/api/health', () => ({ ok: true, ...providerInfo() }));
+route('GET', '/api/health', async () => ({ ok: true, ...providerInfo(), ...(await providerReady()) }));
 
 // Чек-листы
 route('GET', '/api/checklists', () => db.all('checklists'));
@@ -224,7 +224,7 @@ route('POST', '/api/evaluate', async ({ body }) => {
   const cl = db.get('checklists', body.checklist_id) || db.all('checklists')[0];
   if (!providerInfo().configured) throw new HttpError(503, 'LLM не настроен: задайте ANTHROPIC_API_KEY в .env (или CQA_PROVIDER=ollama)');
   const ev = await evaluateConversation(conv, structuredClone(cl), { runs: body.runs ? Number(body.runs) : undefined, mode: ['single', 'per-criterion'].includes(body.mode) ? body.mode : undefined });
-  db.insert('evaluations', ev);
+  saveEvaluation(ev);
   return ev;
 });
 route('POST', '/api/evaluate/batch', ({ body }) => {
@@ -245,7 +245,7 @@ route('GET', '/api/jobs/:id', ({ p }) => publicJob(getJob(p.id)) || (() => { thr
 route('GET', '/api/evaluations/:id', ({ p }) => {
   const ev = db.get('evaluations', p.id);
   if (!ev) throw new HttpError(404, 'Оценка не найдена');
-  return { ...ev, appeals: db.filter('appeals', (a) => a.evaluation_id === ev.id) };
+  return { ...ev, trace: ev.trace || db.readBlob('traces', ev.id) || {}, appeals: db.filter('appeals', (a) => a.evaluation_id === ev.id) };
 });
 
 // Апелляции
@@ -380,10 +380,28 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+migrateTraces();
 resumeJobs();
 
-server.listen(PORT, () => {
+// Долгие оценки (локальная модель, 8 вызовов) не должны обрываться таймаутом HTTP-сервера.
+server.requestTimeout = 20 * 60_000;
+server.headersTimeout = 65_000;
+server.keepAliveTimeout = 60_000;
+
+// Корректная остановка: дописать хранилище на диск. Незавершённая очередь продолжится при запуске.
+for (const sig of ['SIGINT', 'SIGTERM']) {
+  process.once(sig, async () => {
+    console.log(`\n${sig}: сохраняю данные…`);
+    server.close();
+    await db.flush();
+    process.exit(0);
+  });
+}
+
+server.listen(PORT, async () => {
   const info = providerInfo();
   console.log(`CQA запущен: http://localhost:${PORT}`);
   console.log(`LLM: ${info.provider} / ${info.model}${info.configured ? '' : '  ⚠ ключ API не задан — оценка недоступна'}`);
+  const ready = await providerReady();
+  if (!ready.ready) console.log(`⚠ ${ready.problem}`);
 });

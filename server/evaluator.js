@@ -244,6 +244,24 @@ export async function evaluateConversation(conv, checklist, { runs = RUNS, mode 
   };
 }
 
+/** Сохраняет оценку: трассировка — отдельным файлом, в общем списке — только результат. */
+export function saveEvaluation(ev) {
+  const { trace, ...rest } = ev;
+  if (trace) db.writeBlob('traces', ev.id, trace);
+  db.insert('evaluations', rest);
+  return ev;
+}
+
+/** Одноразовый перенос трассировок старых оценок в storage/traces. */
+export function migrateTraces() {
+  let n = 0;
+  for (const e of db.all('evaluations')) {
+    if (!e.trace) continue;
+    db.writeBlob('traces', e.id, e.trace); delete e.trace; n++;
+  }
+  if (n) { db.update('evaluations', db.all('evaluations')[0].id, {}); console.log(`[db] трассировки ${n} оценок перенесены в storage/traces`); }
+}
+
 export function recomputeFinal(ev) {
   const answers = Object.fromEntries(ev.criteria.map((c) => [c.criterion_id, c.final_answer]));
   ev.final_score = computeScore(ev.checklist, answers);
@@ -285,7 +303,7 @@ function runJob(job) {
       try {
         if (!conv) throw new Error('диалог не найден');
         const ev = await evaluateConversation(conv, job.checklist);
-        db.insert('evaluations', ev);
+        saveEvaluation(ev);
         job.results.push({ conversation_id: cid, evaluation_id: ev.id, total: ev.final_score.total, gross: ev.final_score.gross_error });
         job.cost_usd = Math.round((job.cost_usd + ev.cost_usd) * 10000) / 10000;
         job.done++;

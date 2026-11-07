@@ -60,4 +60,13 @@ export const db = {
     return false;
   },
   flush() { return Promise.all([...writing.values()]); },
+  // Крупные данные (трассировки) — отдельный файл на запись, чтобы не перезаписывать общий JSON.
+  writeBlob(kind, id, obj) {
+    const dir = path.join(DIR, kind); fs.mkdirSync(dir, { recursive: true });
+    const f = path.join(dir, `${id}.json`);
+    return fs.promises.writeFile(f + '.tmp', JSON.stringify(obj)).then(() => fs.promises.rename(f + '.tmp', f)).catch((e) => console.error('[db] blob', kind, id, e));
+  },
+  readBlob(kind, id) {
+    try { return JSON.parse(fs.readFileSync(path.join(DIR, kind, `${id}.json`), 'utf8')); } catch { return null; }
+  },
 };

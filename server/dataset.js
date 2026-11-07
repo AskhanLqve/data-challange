@@ -1,8 +1,8 @@
 // Загрузка наборов через API организаторов, импорт файлов и нормализация транскриптов.
 import { db } from './db.js';
 
-const DEFAULT_API = '';
-export const DATASET_API = process.env.CQA_DATASET_API_URL || DEFAULT_API;
+// Адрес API организаторов содержит подпись доступа (sig) — хранится только в .env, не в коде.
+export const DATASET_API = process.env.CQA_DATASET_API_URL || '';
 
 const ROLES = new Set(['client', 'operator', 'bot', 'system']);
 const ROLE_ALIASES = {
@@ -95,6 +95,7 @@ export function importRecords(records, groupId) {
 }
 
 export async function fetchGroup(groupId) {
+  if (!DATASET_API) throw new Error('Не задан адрес API организаторов: укажите CQA_DATASET_API_URL в .env (ссылка «GET для DEV» из гайда, без group_id)');
   const url = new URL(DATASET_API);
   url.searchParams.set('group_id', groupId);
   const res = await fetch(url, { signal: AbortSignal.timeout(60_000) });

@@ -5,3 +5,4 @@ storage/
 data/
 *.pdf
 *.env
+photo_*.jpg
