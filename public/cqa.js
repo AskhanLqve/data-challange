@@ -333,7 +333,7 @@
       const evaluated = filtered.filter((c) => c.last_evaluation);
       const avg = evaluated.length ? evaluated.reduce((s, c) => s + (c.last_evaluation.total || 0), 0) / evaluated.length : null;
 
-      view.append(
+      appendAll(view, 
         h('div', { class: 'stack' },
           h('div', { class: 'panel' },
             h('div', { class: 'row' },
@@ -579,7 +579,8 @@
         const why = h('div', { class: 'why' });
         const renderWhy = () => {
           const fc = focusCrit;
-          why.replaceChildren(
+          // replaceChildren превращает null в текст «null» — пустые части отфильтровываются
+          why.replaceChildren(...[
             h('h3', {}, fc ? 'Почему снижена оценка' : 'Оценка без снижений'),
             fc ? h('p', {}, h('b', {}, fc.c.name + ': '), fc.r.ai.explanation) : h('p', { class: 'muted' }, 'Все применимые критерии выполнены полностью.'),
             lost.length > 1 ? h('div', { class: 'why-tabs' }, lost.map((x) => h('button', { type: 'button', class: 'chip-btn' + (x === fc ? ' on' : ''), onclick: () => { focusCrit = x; renderWhy(); } }, x.c.name))) : null,
@@ -587,7 +588,7 @@
               h('button', { class: 'btn primary', type: 'button', disabled: !fc, onclick: () => {
                 const e = fc?.r.ai.evidence?.[0]?.message || fc?.r.ai.checked_range?.from; if (e) select(e); else this.toast('Модель не указала реплику для этого критерия', true);
               } }, 'Перейти к фрагменту'),
-              h('button', { class: 'btn', type: 'button', disabled: !fc, onclick: () => { appealBox.replaceChildren(this.appealForm(ev, fc.c, () => this.render())); appealBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } }, 'Оспорить оценку')));
+              h('button', { class: 'btn', type: 'button', disabled: !fc, onclick: () => { appealBox.replaceChildren(this.appealForm(ev, fc.c, () => this.render())); appealBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } }, 'Оспорить оценку'))].filter(Boolean));
         };
         renderWhy();
         const appealBox = h('div');
@@ -715,7 +716,7 @@
               models.cloud_measured ? null : h('tr', {}, h('td', {}, 'Claude'), h('td', {}, 'облако'),
                 h('td', { colspan: 6, class: 'muted' }, 'не замерено: задайте ANTHROPIC_API_KEY в .env и запустите pnpm eval --run --set dev')))))) : null) : null;
 
-      view.append(head,
+      appendAll(view, head,
         h('div', { class: 'kpis' },
           kpi('Средний итог', fmt(a.avg), `медиана ${fmt(a.median)}`),
           kpi('Оценено', `${a.evaluated} из ${a.conversations}`, a.evaluated < a.conversations ? 'есть неоценённые диалоги' : 'весь набор'),
@@ -742,7 +743,7 @@
       const cl = this.checklist;
       const tabs = [['chat', 'Конструктор чата'], ['file', 'Файл или текст'], ['audio', 'Аудио и микрофон']];
       const body = h('div');
-      view.append(
+      appendAll(view, 
         h('div', { class: 'page-head' }, h('div', {}, h('h1', {}, 'Новая проверка'), h('div', { class: 'sub' }, 'Любой диалог, не только из API организаторов: соберите переписку, загрузите файл или запись звонка.'))),
         h('div', { class: 'tabs', role: 'tablist' }, tabs.map(([id, label]) => h('a', { role: 'tab', href: `#/new/${id}`, class: 'tab' + (tab === id ? ' on' : ''), 'aria-selected': String(tab === id) }, label))),
         body);
@@ -1162,7 +1163,7 @@
         if (ap.requested_answer) { action.value = 'change'; newWrap.hidden = false; }
         const reason = h('textarea', { placeholder: 'Причина решения (обязательно)', rows: 3 });
         const reviewer = h('input', { type: 'text', value: localStorage.getItem('cqa.reviewer') || 'Проверяющий QA' });
-        decision.append(h('h2', {}, 'Решение проверяющего'),
+        appendAll(decision, h('h2', {}, 'Решение проверяющего'),
           h('label', { class: 'field' }, 'Действие', action), newWrap,
           h('label', { class: 'field' }, 'Причина', reason),
           h('label', { class: 'field' }, 'Проверяющий', reviewer),
@@ -1174,7 +1175,7 @@
           }) }, 'Сохранить решение'));
       } else {
         const d = ap.decision;
-        decision.append(h('h2', {}, 'Решение'),
+        appendAll(decision, h('h2', {}, 'Решение'),
           h('dl', { class: 'kv' },
             h('dt', {}, 'Действие'), h('dd', {}, d.action === 'change' ? 'Оценка изменена' : 'Оценка подтверждена'),
             h('dt', {}, 'Оценка'), h('dd', {}, `${ap.disputed_label} → ${d.new_label}`),
@@ -1199,7 +1200,7 @@
         }
       }
 
-      view.append(h('div', { class: 'stack' },
+      appendAll(view, h('div', { class: 'stack' },
         h('div', { class: 'row' }, h('a', { class: 'btn sm', href: '#/appeals' }, 'Все апелляции'),
           h('h1', { style: { margin: 0 } }, `Апелляция: ${ap.conversation_id} · ${c.code || ''} ${c.name}`),
           h('div', { class: 'spacer' }), h('a', { class: 'btn', href: `#/c/${encodeURIComponent(ap.conversation_id)}?ev=${ev.id}` }, 'Открыть карточку диалога')),
@@ -1273,7 +1274,7 @@
         this.render();
       });
 
-      editor.append(
+      appendAll(editor, 
         h('div', { class: 'panel stack' },
           h('div', { class: 'row' }, h('h1', { style: { margin: 0, flex: 1 } }, 'Настройка чек-листа'), h('span', { class: 'muted small' }, `v${cur.version} · изменён ${fmtDate(cur.updated_at)}`)),
           h('label', { class: 'field' }, 'Название', inp(draft, 'name')),
