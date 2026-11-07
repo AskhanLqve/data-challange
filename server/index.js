@@ -8,6 +8,7 @@ import { fetchGroup, extractRecords, importRecords, resolveAudio } from './datas
 import { evaluateConversation, recomputeFinal, startBatch, getJob, listJobs, publicJob, resumeJobs } from './evaluator.js';
 import { providerInfo } from './llm.js';
 import { allowedAnswers, answerLabel } from './scoring.js';
+import { buildResults, validateResults } from './results.js';
 
 const PORT = Number(process.env.PORT || 3000);
 const PUBLIC = path.resolve('public');
@@ -161,6 +162,61 @@ route('GET', '/api/audio/:id', async ({ p, res }) => {
   res.end();
 });
 
+// Файл записи через наш адрес (same-origin): браузер декодирует его и строит волны дорожек «Клиент»/«Оператор».
+route('GET', '/api/audio/:id/file', async ({ p, res }) => {
+  const c = db.get('conversations', decodeURIComponent(p.id), 'conversation_id');
+  if (!c?.audio_url) throw new HttpError(404, 'У диалога нет записи');
+  const src = await resolveAudio(c.audio_url);
+  const up = await fetch(src, { signal: AbortSignal.timeout(120_000) });
+  if (!up.ok) throw new HttpError(502, `Запись недоступна (HTTP ${up.status})`);
+  const buf = Buffer.from(await up.arrayBuffer());
+  res.writeHead(200, { 'content-type': up.headers.get('content-type') || 'audio/mpeg', 'content-length': buf.length, 'cache-control': 'private, max-age=1800' });
+  res.end(buf);
+});
+
+// Аналитика по набору: последняя оценка каждого диалога выбранным чек-листом.
+route('GET', '/api/analytics', ({ q }) => {
+  const g = q.get('group_id'); const clId = q.get('checklist_id');
+  const convs = db.filter('conversations', (c) => !g || c.group_id === g);
+  const latest = new Map();
+  for (const e of db.all('evaluations')) {
+    if (clId && e.checklist_id !== clId) continue;
+    if (!convs.some((c) => c.conversation_id === e.conversation_id)) continue;
+    const cur = latest.get(e.conversation_id);
+    if (!cur || e.created_at > cur.created_at) latest.set(e.conversation_id, e);
+  }
+  const evs = [...latest.values()];
+  const totals = evs.map((e) => e.final_score.total).filter((x) => x != null).sort((a, b) => a - b);
+  const avg = (xs) => (xs.length ? Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 100) / 100 : null);
+  const cl = (clId && db.get('checklists', clId)) || evs[0]?.checklist || db.all('checklists')[0];
+  const criteria = cl.criteria.map((c) => {
+    const rows = evs.map((e) => e.criteria.find((x) => x.criterion_id === c.id)).filter(Boolean);
+    const applicable = rows.filter((r) => r.final_answer !== 'na');
+    const max = c.type === 'scale' ? Math.max(...c.scale.map((s) => s.value)) : 1;
+    const share = (r) => (c.type === 'scale' ? Number(r.final_answer) / max : r.final_answer === 'yes' ? 1 : 0);
+    const rate = applicable.length ? Math.round((applicable.reduce((s, r) => s + share(r), 0) / applicable.length) * 1000) / 10 : null;
+    return { id: c.id, code: c.code, name: c.name, type: c.type, weight: c.weight, evaluated: rows.length, applicable: applicable.length, na: rows.length - applicable.length, rate };
+  });
+  const group = (key) => {
+    const m = new Map();
+    for (const e of evs) { const conv = convs.find((c) => c.conversation_id === e.conversation_id); const k = conv?.[key] || '—'; if (!m.has(k)) m.set(k, []); if (e.final_score.total != null) m.get(k).push(e.final_score.total); }
+    return [...m].map(([k, xs]) => ({ key: k, count: xs.length, avg: avg(xs) }));
+  };
+  const hist = Array.from({ length: 10 }, (_, i) => ({ from: i * 10, to: i * 10 + 10, count: 0 }));
+  for (const t of totals) hist[Math.min(9, Math.floor(t / 10))].count++;
+  const appeals = db.filter('appeals', (a) => latest.has(a.conversation_id));
+  return {
+    group_id: g, checklist: { id: cl.id, name: cl.name, version: cl.version },
+    conversations: convs.length, evaluated: evs.length, avg: avg(totals),
+    median: totals.length ? totals[Math.floor((totals.length - 1) / 2)] : null,
+    gross: evs.filter((e) => e.final_score.gross_error).map((e) => e.conversation_id),
+    appeals: { open: appeals.filter((a) => a.status === 'open').length, resolved: appeals.filter((a) => a.status !== 'open').length, changed: appeals.filter((a) => a.decision?.action === 'change').length },
+    criteria, by_language: group('language'), by_channel: group('channel'), histogram: hist,
+    weakest: evs.filter((e) => e.final_score.total != null).sort((a, b) => a.final_score.total - b.final_score.total).slice(0, 6)
+      .map((e) => ({ conversation_id: e.conversation_id, total: e.final_score.total, gross: e.final_score.gross_error })),
+  };
+});
+
 // Оценка
 route('POST', '/api/evaluate', async ({ body }) => {
   const conv = db.get('conversations', body.conversation_id, 'conversation_id');
@@ -271,6 +327,21 @@ route('GET', '/api/export', ({ q, res }) => {
   const csv = '﻿' + [header, ...rows].map((r) => r.map(csvEscape).join(';')).join('\n');
   res.writeHead(200, { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="cqa-results.csv"' });
   res.end(csv);
+});
+
+// Результаты в формате организаторов (Results JSON 1.0): /api/results?group_id=DEV&checklist_id=…&use=ai|final&expect=10
+route('GET', '/api/results', ({ q }) => {
+  const g = q.get('group_id');
+  if (!g) throw new HttpError(400, 'Укажите group_id');
+  const convs = db.filter('conversations', (c) => c.group_id === g);
+  if (!convs.length) throw new HttpError(404, `Набор ${g} не загружен`);
+  const clId = q.get('checklist_id');
+  const latest = (id) => db.filter('evaluations', (e) => e.conversation_id === id && (!clId || e.checklist_id === clId))
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+  const doc = buildResults({ conversationIds: convs.map((c) => c.conversation_id), latestEval: latest, teamName: q.get('team'), use: q.get('use') === 'final' ? 'final' : 'ai' });
+  const expect = q.get('expect') ? Number(q.get('expect')) : undefined;
+  const problems = validateResults(doc, { expectCount: expect, transcriptLengths: Object.fromEntries(convs.map((c) => [c.conversation_id, c.transcript.length])) });
+  return { doc, problems };
 });
 
 // ---------- сервер ----------

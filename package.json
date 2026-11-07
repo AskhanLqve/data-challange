@@ -9,7 +9,8 @@
     "dev": "node --watch --env-file-if-exists=.env server/index.js",
     "batch": "node --env-file-if-exists=.env scripts/batch.js",
     "test": "node --test test/*.test.js",
-    "eval": "node --env-file-if-exists=.env scripts/eval.js"
+    "eval": "node --env-file-if-exists=.env scripts/eval.js",
+    "results": "node --env-file-if-exists=.env scripts/results.js"
   },
   "engines": {
     "node": ">=20.6"

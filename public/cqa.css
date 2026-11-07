@@ -122,7 +122,7 @@ cqa-app .fragment .msg { margin-bottom: 3px; }
 
 /* Редактор чек-листа */
 cqa-app .crit-edit { border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; background: var(--panel); }
-cqa-app .crit-edit .grid { display: grid; grid-template-columns: 70px 1fr 170px 150px 90px 110px; gap: 8px; align-items: end; }
+cqa-app .crit-edit .grid { display: grid; grid-template-columns: 190px 1fr 170px 150px 90px 110px; gap: 8px; align-items: end; }
 @media (max-width: 1000px) { cqa-app .crit-edit .grid { grid-template-columns: 1fr 1fr; } }
 cqa-app .scale-row { display: grid; grid-template-columns: 80px 1fr auto; gap: 6px; margin-top: 4px; }
 cqa-app .weights { font-variant-numeric: tabular-nums; }
@@ -162,3 +162,145 @@ cqa-app .tag.blue { background: var(--brand-soft); color: var(--brand); }
 cqa-app .crit { border-radius: var(--radius); }
 cqa-app .ev { border-radius: 999px; padding: 0.25rem 0.75rem; }
 cqa-app tbody tr:hover { background: var(--brand-soft); }
+
+/* ===================== Макет организаторов: боковая панель + анализ разговора ===================== */
+cqa-app {
+  --side: #0b4a2a; --side-ink: #e8f5ee; --side-active: rgba(0, 179, 35, .42);
+  --wave-client: #0b4a2a; --wave-op: #00b323; --hl-frag: rgba(255, 167, 0, .16); --hl-frag-line: #ffa700; --sel: #fff1dc;
+}
+@media (prefers-color-scheme: dark) {
+  cqa-app { --side: #08150f; --wave-client: #7fd8a4; --wave-op: #00e183; --sel: #3a2c10; --hl-frag: rgba(255, 167, 0, .18); }
+}
+cqa-app .topbar { display: none; }
+cqa-app .shell { display: grid; grid-template-columns: 15rem minmax(0, 1fr); min-height: 100vh; }
+cqa-app .side { background: var(--side); color: var(--side-ink); padding: 1.5rem 1rem; display: flex; flex-direction: column; gap: 1.75rem; position: sticky; top: 0; height: 100vh; }
+cqa-app .side-brand { color: #fff; font-weight: 700; font-size: 1.6rem; letter-spacing: 0.02em; text-decoration: none; padding: 0 0.6rem; }
+cqa-app .side-nav { display: flex; flex-direction: column; gap: 0.3rem; }
+cqa-app .side-link { display: flex; align-items: center; gap: 0.75rem; padding: 0.65rem 0.75rem; border-radius: 0.7rem; color: var(--side-ink); text-decoration: none; font-weight: 500; }
+cqa-app .side-link:hover { background: rgba(255, 255, 255, .08); }
+cqa-app .side-link.active { background: var(--side-active); color: #fff; font-weight: 600; }
+cqa-app .side-link .ico { width: 1.25rem; height: 1.25rem; display: grid; place-items: center; }
+cqa-app .side-link .ico svg { width: 1.2rem; height: 1.2rem; }
+cqa-app .side-link .count { margin-left: auto; background: #ffa700; color: #0c1411; border-radius: 999px; font-size: 0.75rem; font-weight: 700; padding: 0 0.45rem; }
+cqa-app .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 0.9rem; font-size: var(--s-meta); }
+cqa-app .side-field { display: flex; flex-direction: column; gap: 0.35rem; color: rgba(232, 245, 238, .7); }
+cqa-app .side-field select { background: rgba(255, 255, 255, .08); border-color: rgba(255, 255, 255, .18); color: #fff; width: 100%; }
+cqa-app .side-field select option { color: #0c1411; }
+cqa-app .side-model { display: flex; flex-direction: column; color: rgba(232, 245, 238, .7); padding: 0 0.2rem; }
+cqa-app .side-model b { color: #fff; font-weight: 500; word-break: break-all; }
+cqa-app .side-model.off b { color: #ffb3b3; }
+cqa-app main { padding: 1.75rem 2rem 4rem; max-width: 1400px; }
+
+cqa-app .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+cqa-app .page-head h1 { font-size: 2.25rem; letter-spacing: -0.035em; margin: 0.15rem 0 0; }
+cqa-app .page-head .sub { color: var(--muted); font-size: 1.05rem; margin-top: 0.2rem; }
+cqa-app .page-head .back { font-size: var(--s-meta); color: var(--muted); text-decoration: none; }
+cqa-app .page-head .back::before { content: "‹ "; }
+cqa-app .section-title { margin: 1.75rem 0 0.75rem; font-size: 1.25rem; }
+
+/* панель записи */
+cqa-app .media { margin-bottom: 1rem; }
+cqa-app .lanes { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); align-items: stretch; }
+cqa-app .lane-names { display: grid; grid-template-rows: 1fr 1fr; font-weight: 600; }
+cqa-app .lane-names span { display: flex; align-items: center; }
+cqa-app .wave { width: 100%; height: 120px; cursor: pointer; display: block; }
+cqa-app .transport { display: flex; align-items: center; gap: 1rem; margin-top: 0.75rem; flex-wrap: wrap; }
+cqa-app .play-btn { width: 2.75rem; height: 2.75rem; border-radius: 50%; border: 0; background: var(--brand); color: #fff; display: grid; place-items: center; cursor: pointer; flex: none; }
+cqa-app .play-btn:disabled { background: var(--line); color: var(--muted); cursor: default; }
+cqa-app .play-btn svg { width: 1.2rem; height: 1.2rem; }
+cqa-app .transport .time { font-variant-numeric: tabular-nums; color: var(--muted); min-width: 7.5rem; }
+cqa-app .seek { flex: 1; min-width: 10rem; accent-color: var(--brand); }
+
+/* две колонки */
+cqa-app .card-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
+cqa-app .tr-panel h2, cqa-app .q-panel h2 { font-size: 1.5rem; letter-spacing: -0.02em; margin: 0 0 0.75rem; }
+cqa-app .tr-list { max-height: 34rem; overflow-y: auto; display: flex; flex-direction: column; }
+cqa-app .line { display: grid; grid-template-columns: auto auto 1fr; gap: 0.25rem 0.6rem; text-align: left; border: 0; border-top: 1px solid var(--line); background: transparent; padding: 0.75rem 0.6rem; border-radius: 0; cursor: pointer; color: var(--ink); }
+cqa-app .line:first-child { border-top: 0; }
+cqa-app .line:hover { background: var(--bg); }
+cqa-app .line.sel { background: var(--sel); border-radius: 0.6rem; border-top-color: transparent; }
+cqa-app .line.sel + .line { border-top-color: transparent; }
+cqa-app .line .when { color: var(--muted); font-variant-numeric: tabular-nums; }
+cqa-app .line .who { font-weight: 600; color: var(--brand-dark); }
+cqa-app .line.client .who { color: #0b4a2a; }
+cqa-app .line .num { color: var(--muted); font-size: var(--s-meta); justify-self: end; }
+cqa-app .line .what { grid-column: 1 / -1; font-size: 1rem; }
+cqa-app .line.bot .what, cqa-app .line.system .what { color: var(--muted); font-size: var(--s-body); }
+cqa-app .line.bot .who, cqa-app .line.system .who { color: var(--muted); font-weight: 500; }
+@media (prefers-color-scheme: dark) { cqa-app .line.client .who { color: #7fd8a4; } }
+
+/* оценка качества */
+cqa-app .q-top { display: grid; grid-template-columns: 9.5rem minmax(0, 1fr); gap: 1.25rem; align-items: center; }
+cqa-app .ring { position: relative; width: 9.5rem; height: 9.5rem; }
+cqa-app .ring svg { width: 100%; height: 100%; }
+cqa-app .ring-bg { fill: none; stroke: var(--line); stroke-width: 9; }
+cqa-app .ring-fg { fill: none; stroke: var(--brand); stroke-width: 9; stroke-linecap: round; }
+cqa-app .ring-val { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+cqa-app .ring-val b { font-size: 2.2rem; font-weight: 650; letter-spacing: -0.04em; line-height: 1; }
+cqa-app .ring-val span { color: var(--muted); font-size: 0.95rem; }
+cqa-app .q-list { display: flex; flex-direction: column; }
+cqa-app .q-row { display: grid; grid-template-columns: 1.6rem 1fr auto; gap: 0.6rem; align-items: center; padding: 0.45rem 0.2rem; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); text-align: left; cursor: pointer; font-size: 0.95rem; }
+cqa-app .q-row:last-child { border-bottom: 0; }
+cqa-app .q-row:hover { background: var(--bg); }
+cqa-app .q-ico { width: 1.5rem; height: 1.5rem; border-radius: 0.4rem; display: grid; place-items: center; }
+cqa-app .q-ico svg { width: 0.9rem; height: 0.9rem; }
+cqa-app .q-row.ok .q-ico, cqa-app .q-row.part .q-ico { background: var(--ok-soft); color: var(--ok); }
+cqa-app .q-row.no .q-ico { background: #fff1dc; color: #c77700; }
+cqa-app .q-row.na .q-ico { background: var(--na-soft); color: var(--na); }
+cqa-app .q-pts { font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
+cqa-app .q-row.ok .q-pts b, cqa-app .q-row.part .q-pts b { color: var(--ok); }
+cqa-app .q-row.no .q-pts b { color: #c77700; }
+cqa-app .gross { display: flex; gap: 0.6rem; align-items: flex-start; margin-top: 1rem; padding: 0.75rem 0.9rem; border-radius: 0.8rem; background: var(--bad-soft); color: var(--ink); }
+cqa-app .gross svg { width: 1.2rem; height: 1.2rem; color: var(--bad); flex: none; margin-top: 0.1rem; }
+cqa-app .why { border-top: 1px solid var(--line); margin-top: 1rem; padding-top: 1rem; }
+cqa-app .why h3 { font-size: 1.1rem; margin: 0 0 0.4rem; }
+cqa-app .why p { margin: 0; }
+cqa-app .why-tabs { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.7rem; }
+cqa-app .chip-btn { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 0.2rem 0.7rem; font-size: var(--s-meta); cursor: pointer; color: var(--ink); }
+cqa-app .chip-btn.on { border-color: #ffa700; background: #fff1dc; color: #0c1411; }
+cqa-app .why-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 1rem; }
+cqa-app .why-actions .btn { justify-content: center; min-height: 2.9rem; border-radius: 0.7rem; font-size: 1rem; }
+cqa-app .why-actions .btn:not(.primary) { border-color: var(--ink); }
+
+/* аналитика */
+cqa-app .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+cqa-app .kpi { display: flex; flex-direction: column; gap: 0.2rem; }
+cqa-app .kpi-l { color: var(--muted); font-size: var(--s-meta); }
+cqa-app .kpi b { font-size: 2.2rem; font-weight: 650; letter-spacing: -0.035em; line-height: 1.1; }
+cqa-app .kpi-n { color: var(--muted); font-size: var(--s-meta); }
+cqa-app .an-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: 1rem; margin-bottom: 1rem; align-items: start; }
+cqa-app .an-grid h2, cqa-app .kpis + .an-grid + .panel h2 { font-size: 1.15rem; margin: 0 0 0.2rem; }
+cqa-app .hbars { display: flex; flex-direction: column; gap: 0.7rem; margin-top: 1rem; }
+cqa-app .hbar-row { display: grid; grid-template-columns: minmax(9rem, 15rem) minmax(0, 1fr) 4rem; gap: 0.75rem; align-items: center; }
+cqa-app .hbar-name { font-size: 0.9rem; }
+cqa-app .hbar-track { height: 0.75rem; background: var(--na-soft); border-radius: 4px; overflow: hidden; outline-offset: 3px; }
+cqa-app .hbar-fill { height: 100%; background: var(--brand); border-radius: 0 4px 4px 0; }
+cqa-app .hbar-val { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink); }
+cqa-app .vbars { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 2px; align-items: end; height: 11rem; margin-top: 1rem; border-bottom: 1px solid var(--line); }
+cqa-app .vbar-col { display: flex; flex-direction: column; height: 100%; }
+cqa-app .vbar-track { flex: 1; display: flex; align-items: flex-end; outline-offset: 2px; }
+cqa-app .vbar-fill { width: 100%; background: var(--brand); border-radius: 4px 4px 0 0; min-height: 0; }
+cqa-app .vbar-x { font-size: 0.75rem; color: var(--muted); text-align: center; transform: translateY(1.2rem); }
+cqa-app .as-table { margin-top: 1.6rem; }
+cqa-app .as-table summary { font-size: var(--s-meta); }
+cqa-app .weak { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 0.5rem; margin-top: 0.75rem; }
+cqa-app .weak-row { display: grid; grid-template-columns: 1fr auto auto; gap: 0.6rem; align-items: center; padding: 0.6rem 0.8rem; border: 1px solid var(--line); border-radius: 0.8rem; text-decoration: none; color: var(--ink); }
+cqa-app .weak-row:hover { border-color: var(--brand); }
+cqa-app .tip { position: fixed; z-index: 50; max-width: 18rem; background: #0c1411; color: #fff; font-size: var(--s-meta); padding: 0.45rem 0.65rem; border-radius: 0.5rem; pointer-events: none; box-shadow: var(--shadow); }
+
+@media (max-width: 1100px) {
+  cqa-app .card-cols, cqa-app .an-grid { grid-template-columns: 1fr; }
+  cqa-app .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  cqa-app .shell { grid-template-columns: 1fr; }
+  cqa-app .side { position: sticky; top: 0; z-index: 30; height: auto; flex-direction: row; align-items: center; gap: 0.75rem; padding: 0.6rem 0.75rem; overflow-x: auto; }
+  cqa-app .side-nav { flex-direction: row; }
+  cqa-app .side-link span:not(.ico):not(.count) { display: none; }
+  cqa-app .side-foot { display: none; }
+  cqa-app main { padding: 1rem 1rem 3rem; }
+  cqa-app .q-top { grid-template-columns: 1fr; justify-items: center; }
+  cqa-app .lanes { grid-template-columns: 4.5rem minmax(0, 1fr); }
+  cqa-app .hbar-row { grid-template-columns: 1fr 3.5rem; }
+  cqa-app .hbar-row .hbar-track { grid-column: 1 / -1; grid-row: 2; }
+}

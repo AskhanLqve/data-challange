@@ -25,6 +25,19 @@
   const fmt = (x, d = 2) => (x == null ? '—' : Number(x).toLocaleString('ru-RU', { maximumFractionDigits: d }));
   const fmtDate = (s) => (s ? new Date(s).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' }) : '');
   const clock = (sec) => { if (sec == null) return ''; const s = Math.round(sec); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+  const ICONS = {
+    chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12l3 3 5-6"/></svg>',
+    scale: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M7 21h10M5 7h14M5 7l-3 7a4 4 0 0 0 6 0zM19 7l-3 7a4 4 0 0 0 6 0z"/></svg>',
+    bars: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="12" width="4" height="8" rx="1"/><rect x="10" y="7" width="4" height="13" rx="1"/><rect x="16" y="3" width="4" height="17" rx="1"/></svg>',
+    play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
+    pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>',
+    ok: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
+    no: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>',
+    na: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 12h12"/></svg>',
+    warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>',
+  };
+  const LANG_NAME = { RU: 'Русский', KZ: 'Қазақша', EN: 'English' };
   const LANG = { RU: 'RU', KZ: 'KZ', EN: 'EN' };
   const ROLE = { client: 'Клиент', operator: 'Оператор', bot: 'Бот', system: 'Система' };
   const TYPE = { binary: 'Да / Нет', scale: 'Шкала', flag: 'Флаг (без баллов)' };
@@ -72,9 +85,9 @@
 
     async init() {
       this.innerHTML = '';
-      this.top = h('div', { class: 'topbar' });
+      this.side = h('aside', { class: 'side' });
       this.main = h('main');
-      this.append(this.top, this.main);
+      this.append(h('div', { class: 'shell' }, this.side, this.main));
       await this.guard(async () => {
         [this.state.health, this.state.checklists] = await Promise.all([this.req('GET', '/api/health'), this.req('GET', '/api/checklists')]);
         this.state.checklistId = localStorage.getItem('cqa.checklist') || this.state.checklists[0]?.id;
@@ -93,28 +106,31 @@
     }
     go(hash) { location.hash = hash; }
 
-    async renderTop() {
+    async renderSide() {
       const { parts } = this.route();
       const sect = parts[0] || '';
       let open = 0;
       try { open = (await this.req('GET', '/api/appeals?status=open')).length; } catch { /* ignore */ }
       const hlth = this.state.health;
-      this.top.replaceChildren(
-        h('a', { class: 'brand', href: this.getAttribute('home-url') || 'index.html', title: 'На главную' }, h('span', { class: 'mark', html: '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M8 16.5l5 5L24 10.5" stroke="#fff" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>' }), 'CQA', h('small', {}, 'Контроль качества диалогов')),
-        h('nav', {},
-          h('a', { href: '#/', class: ['', 'c'].includes(sect) ? 'active' : '' }, 'Диалоги'),
-          h('a', { href: '#/appeals', class: sect === 'appeals' ? 'active' : '' }, 'Апелляции', open ? h('span', { class: 'count' }, open) : null),
-          h('a', { href: '#/checklists', class: sect === 'checklists' ? 'active' : '' }, 'Чек-листы')),
-        h('div', { class: 'spacer' }),
-        h('label', { class: 'row small muted' }, 'Чек-лист:',
-          h('select', { onchange: (e) => { this.state.checklistId = e.target.value; localStorage.setItem('cqa.checklist', e.target.value); this.render(); } },
-            this.state.checklists.map((c) => h('option', { value: c.id, selected: c.id === this.state.checklistId ? 'selected' : null }, `${c.name} · v${c.version}`)))),
-        hlth ? h('span', { class: 'model-badge' + (hlth.configured ? '' : ' off'), title: hlth.configured ? 'Модель оценки' : 'Ключ API не задан — оценка недоступна' }, `Модель: ${hlth.model}${hlth.provider === 'ollama' ? ' (локально)' : hlth.provider === 'anthropic' ? ' (облако)' : ''}${hlth.configured ? '' : ', нет ключа'}`) : null,
+      const item = (href, active, icon, label, extra) => h('a', { href, class: 'side-link' + (active ? ' active' : ''), 'aria-current': active ? 'page' : null }, h('span', { class: 'ico', html: ICONS[icon] }), h('span', {}, label), extra || null);
+      this.side.replaceChildren(
+        h('a', { class: 'side-brand', href: this.getAttribute('home-url') || 'index.html', title: 'О проекте' }, 'CQA'),
+        h('nav', { class: 'side-nav', 'aria-label': 'Разделы' },
+          item('#/', ['', 'c'].includes(sect), 'chat', 'Диалоги'),
+          item('#/checklists', sect === 'checklists', 'check', 'Чек-листы'),
+          item('#/appeals', sect === 'appeals', 'scale', 'Апелляции', open ? h('span', { class: 'count' }, open) : null),
+          item('#/analytics', sect === 'analytics', 'bars', 'Аналитика')),
+        h('div', { class: 'side-foot' },
+          h('label', { class: 'side-field' }, 'Чек-лист',
+            h('select', { onchange: (e) => { this.state.checklistId = e.target.value; localStorage.setItem('cqa.checklist', e.target.value); this.render(); } },
+              this.state.checklists.map((c) => h('option', { value: c.id, selected: c.id === this.state.checklistId ? 'selected' : null }, `${c.name}, v${c.version}`)))),
+          hlth ? h('div', { class: 'side-model' + (hlth.configured ? '' : ' off'), title: hlth.configured ? 'Модель оценки' : 'Ключ API не задан — оценка недоступна' },
+            h('span', {}, hlth.provider === 'ollama' ? 'Локальная модель' : hlth.provider === 'anthropic' ? 'Облачная модель' : 'Модель'), h('b', {}, hlth.model + (hlth.configured ? '' : ', нет ключа'))) : null),
       );
     }
 
     async render() {
-      this.renderTop();
+      this.renderSide();
       const { parts, query } = this.route();
       const view = h('div');
       this.main.replaceChildren(view);
@@ -122,6 +138,7 @@
         if (parts[0] === 'c' && parts[1]) return this.viewCard(view, parts[1], query.get('ev'), query.get('m'));
         if (parts[0] === 'appeals') return this.viewAppeals(view, parts[1]);
         if (parts[0] === 'checklists') return this.viewChecklists(view, parts[1]);
+        if (parts[0] === 'analytics') return this.viewAnalytics(view);
         return this.viewList(view);
       });
     }
@@ -215,7 +232,15 @@
               h('button', { class: 'btn', onclick: () => { pasteBox.hidden = !pasteBox.hidden; } }, 'Вставить текст'),
               h('div', { class: 'spacer' }),
               h('a', { class: 'btn', href: `${this.api}/api/export?checklist_id=${cl?.id || ''}${f.group ? '&group_id=' + f.group : ''}` }, 'Экспорт CSV'),
-              h('a', { class: 'btn', href: `${this.api}/api/export?format=json&checklist_id=${cl?.id || ''}${f.group ? '&group_id=' + f.group : ''}`, target: '_blank' }, 'JSON'))),
+              h('a', { class: 'btn', href: `${this.api}/api/export?format=json&checklist_id=${cl?.id || ''}${f.group ? '&group_id=' + f.group : ''}`, target: '_blank' }, 'JSON'),
+              h('button', { class: 'btn primary', title: 'Файл в формате организаторов (Results JSON 1.0)', onclick: () => this.guard(async () => {
+                if (!f.group) throw new Error('Выберите набор в фильтре «Все наборы», чтобы выгрузить results.json');
+                const r = await this.req('GET', `/api/results?group_id=${encodeURIComponent(f.group)}&checklist_id=${cl?.id || ''}`);
+                const okCount = r.doc.results.filter((x) => x.status === 'ok').length;
+                const blob = new Blob([JSON.stringify(r.doc, null, 2)], { type: 'application/json' });
+                const a = h('a', { href: URL.createObjectURL(blob), download: 'results.json' }); this.append(a); a.click(); a.remove();
+                this.toast(r.problems.length ? `results.json: ${okCount}/${r.doc.results.length} оценено. Проблемы:\n${r.problems.slice(0, 6).join('\n')}` : `results.json готов: ${okCount}/${r.doc.results.length} диалогов, проверка пройдена`, r.problems.length > 0);
+              }) }, 'results.json'))),
           pasteBox,
           h('div', { class: 'panel' },
             h('div', { class: 'row', style: { marginBottom: '10px' } },
@@ -270,71 +295,255 @@
       const conv = await this.req('GET', `/api/conversations/${encodeURIComponent(convId)}`);
       const evMeta = conv.evaluations.find((e) => e.id === evId) || conv.evaluations[0];
       const ev = evMeta ? await this.req('GET', `/api/evaluations/${evMeta.id}`) : null;
+      const isCall = conv.channel === 'voice call';
+      const T = conv.transcript;
+      const lastOff = Math.max(0, ...T.map((m) => m.offset_sec || 0));
+      const duration = lastOff + 5;
+      const timeOf = (m) => (isCall ? clock(m.offset_sec) : m.timestamp);
+      const span = (idx) => { const m = T[idx - 1]; const next = T.slice(idx).find((x) => x.offset_sec != null && x.offset_sec > (m?.offset_sec ?? 0)); return m?.offset_sec == null ? null : [m.offset_sec, next ? next.offset_sec : m.offset_sec + 4]; };
+      const speakerAt = (t) => { let sp = null; for (const m of T) { if (m.offset_sec == null || m.offset_sec > t) break; if (m.speaker === 'client' || m.speaker === 'operator') sp = m.speaker; else if (m.speaker === 'bot') sp = null; } return sp; };
+      const state = { selected: focusMsg ? Number(focusMsg) : null };
 
-      // --- транскрипт ---
-      let audio = null;
-      const tr = h('div', { class: 'panel transcript' });
-      if (conv.audio_url) {
-        audio = h('audio', { controls: true, preload: 'none', src: `${this.api}/api/audio/${encodeURIComponent(conv.conversation_id)}` });
-        tr.append(h('div', { class: 'audio-bar' }, h('div', { class: 'row small muted', style: { marginBottom: '4px' } }, '🎧 Запись звонка',
-          h('a', { href: conv.audio_url, target: '_blank', rel: 'noopener' }, 'открыть плеер организаторов ↗'),
-          h('label', { class: 'row' }, 'скорость', h('select', { onchange: (e) => { audio.playbackRate = Number(e.target.value); } }, ['0.75', '1', '1.25', '1.5', '2'].map((v) => h('option', { value: v, selected: v === '1' ? 'selected' : null }, v + 'x'))))), audio));
-      }
-      const msgEls = new Map();
-      for (const m of conv.transcript) {
-        const el = h('div', { class: `msg ${m.speaker}`, id: `m-${m.idx}` },
-          h('div', { class: 'num' }, '#' + m.idx),
-          h('div', {},
-            h('div', { class: 'meta' }, h('span', { class: 'role' }, ROLE[m.speaker] || m.speaker), h('span', {}, m.timestamp),
-              audio && m.offset_sec != null ? h('button', { class: 'play', title: 'Прослушать с этого места', onclick: () => this.seek(audio, m.offset_sec) }, `▶ ${clock(m.offset_sec)}`) : null),
-            h('div', { class: 'text' }, m.text)));
-        msgEls.set(m.idx, el);
-        tr.append(el);
-      }
-      const focus = (idx, range) => {
-        tr.querySelectorAll('.flash, .inrange').forEach((e) => e.classList.remove('flash', 'inrange'));
-        if (range) for (let i = range.from; i <= range.to; i++) msgEls.get(i)?.classList.add('inrange');
-        const el = msgEls.get(idx);
-        if (!el) return;
-        el.classList.add('flash');
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        history.replaceState(null, '', `#/c/${encodeURIComponent(conv.conversation_id)}?ev=${ev?.id || ''}&m=${idx}`);
-      };
-      const jump = (idx, range) => {
-        focus(idx, range);
-        const m = conv.transcript[idx - 1];
-        if (audio && m?.offset_sec != null) this.seek(audio, m.offset_sec, false);
-      };
-
-      // --- результат ---
-      const right = h('div', { class: 'stack' });
+      // ---------- заголовок ----------
       const cl = this.checklist;
-      const evalBtn = h('button', { class: 'btn primary', onclick: async () => {
-        evalBtn.disabled = true; evalBtn.textContent = 'Оценка… (до минуты)';
+      const evalBtn = h('button', { class: 'btn primary', title: `Чек-лист «${cl.name}» v${cl.version}`, onclick: async () => {
+        evalBtn.disabled = true; evalBtn.textContent = 'Идёт оценка…';
         await this.guard(async () => {
           const r = await this.req('POST', '/api/evaluate', { conversation_id: conv.conversation_id, checklist_id: cl.id });
-          this.toast(`Готово: ${fmt(r.final_score.total)} баллов · $${fmt(r.cost_usd, 4)} · ${Math.round(r.duration_ms / 1000)} с`);
+          this.toast(`Готово: ${fmt(r.final_score.total)} из 100, ${Math.round(r.duration_ms / 1000)} с`);
           this.go(`#/c/${encodeURIComponent(conv.conversation_id)}?ev=${r.id}`);
         });
         evalBtn.disabled = false; evalBtn.textContent = ev ? 'Переоценить' : 'Оценить';
-      }, title: `Чек-лист «${cl.name}» v${cl.version}` }, ev ? 'Переоценить' : 'Оценить');
-
-      right.append(h('div', { class: 'panel' },
+      } }, ev ? 'Переоценить' : 'Оценить');
+      const head = h('div', { class: 'page-head' },
+        h('div', {},
+          h('a', { href: '#/', class: 'back' }, 'Диалоги'),
+          h('h1', {}, isCall ? 'Анализ разговора' : 'Анализ чата'),
+          h('div', { class: 'sub' }, `${isCall ? 'Звонок' : 'Чат'} ${conv.conversation_id} · ${LANG_NAME[conv.language] || conv.language} · ${clock(lastOff)}`)),
         h('div', { class: 'row' },
-          h('a', { href: '#/', class: 'btn sm' }, 'К списку'),
-          h('h1', { style: { margin: 0 } }, conv.conversation_id),
-          h('span', { class: 'tag blue' }, conv.language), h('span', { class: 'tag' }, conv.channel === 'voice call' ? '📞 звонок' : '💬 чат'),
-          h('span', { class: 'muted small' }, conv.group_id),
-          h('div', { class: 'spacer' }), evalBtn),
-        conv.evaluations.length > 1 ? h('div', { class: 'row small', style: { marginTop: '8px' } }, 'История оценок:',
-          h('select', { onchange: (e) => this.go(`#/c/${encodeURIComponent(conv.conversation_id)}?ev=${e.target.value}`) },
-            conv.evaluations.map((e) => h('option', { value: e.id, selected: e.id === ev?.id ? 'selected' : null }, `${fmtDate(e.created_at)} · ${e.checklist_name} v${e.checklist_version} · ${fmt(e.total)}`)))) : null));
+          conv.evaluations.length > 1 ? h('select', { 'aria-label': 'История оценок', onchange: (e) => this.go(`#/c/${encodeURIComponent(conv.conversation_id)}?ev=${e.target.value}`) },
+            conv.evaluations.map((e) => h('option', { value: e.id, selected: e.id === ev?.id ? 'selected' : null }, `${fmtDate(e.created_at)}, ${fmt(e.total)}`))) : null,
+          evalBtn));
 
-      if (!ev) right.append(h('div', { class: 'panel empty' }, 'Диалог ещё не оценён. Нажмите «Оценить».'));
-      else this.renderEvaluation(right, ev, conv, jump);
+      // ---------- панель записи / хронологии ----------
+      const BARS = 220;
+      const canvas = h('canvas', { class: 'wave', height: 120, 'aria-label': isCall ? 'Волны записи: клиент и оператор' : 'Хронология чата: клиент и оператор' });
+      const playBtn = h('button', { class: 'play-btn', 'aria-label': 'Воспроизвести', html: ICONS.play, disabled: !isCall });
+      const timeLbl = h('span', { class: 'time' }, `0:00 / ${clock(isCall ? lastOff : lastOff)}`);
+      const range = h('input', { type: 'range', min: 0, max: Math.round(duration * 10), value: 0, class: 'seek', 'aria-label': 'Позиция', disabled: !isCall });
+      const media = h('div', { class: 'panel media' },
+        h('div', { class: 'lanes' }, h('div', { class: 'lane-names' }, h('span', {}, 'Клиент'), h('span', {}, 'Оператор')), canvas),
+        h('div', { class: 'transport' }, playBtn, timeLbl, range,
+          isCall ? h('a', { class: 'small muted', href: conv.audio_url, target: '_blank', rel: 'noopener' }, 'Плеер организаторов') : h('span', { class: 'small muted' }, 'Чат: высота столбика — длина реплики')));
+      let audio = null;
+      let peaks = null; // амплитуда по времени
+      let dur = duration;
+      const draw = () => {
+        const dpr = window.devicePixelRatio || 1;
+        const w = canvas.clientWidth || 800, hgt = 120;
+        canvas.width = w * dpr; canvas.height = hgt * dpr;
+        const ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr); ctx.clearRect(0, 0, w, hgt);
+        const css = getComputedStyle(this);
+        const cClient = css.getPropertyValue('--wave-client').trim() || '#0c5f35';
+        const cOp = css.getPropertyValue('--wave-op').trim() || '#00b323';
+        const cIdle = css.getPropertyValue('--line').trim() || '#e7e7ea';
+        // выделенный фрагмент
+        const sel = state.selected ? span(state.selected) : null;
+        if (sel) {
+          const x1 = (sel[0] / dur) * w, x2 = Math.max(x1 + 6, (sel[1] / dur) * w);
+          ctx.fillStyle = css.getPropertyValue('--hl-frag').trim() || 'rgba(255,167,0,.16)'; ctx.fillRect(x1, 0, x2 - x1, hgt);
+          ctx.strokeStyle = css.getPropertyValue('--hl-frag-line').trim() || '#ffa700'; ctx.lineWidth = 1; ctx.strokeRect(x1 + .5, .5, x2 - x1 - 1, hgt - 1);
+        }
+        const step = w / BARS, bw = Math.max(1.5, step * 0.55);
+        for (let i = 0; i < BARS; i++) {
+          const t = ((i + 0.5) / BARS) * dur;
+          let amp;
+          if (peaks) amp = peaks[Math.min(peaks.length - 1, Math.floor((i / BARS) * peaks.length))];
+          else { // хронология: столбик там, где была реплика, высота — длина текста
+            // реплика «звучит» от своей метки времени пропорционально длине текста (≈15 символов в секунду)
+            const m = T.find((x) => x.offset_sec != null && (x.speaker === 'client' || x.speaker === 'operator') && t >= x.offset_sec && t <= x.offset_sec + Math.max(dur / 90, x.text.length / 15));
+            amp = m ? 0.35 + 0.5 * Math.abs(Math.sin(i * 1.7)) * Math.min(1, m.text.length / 120) + 0.15 : 0;
+          }
+          const sp = speakerAt(t);
+          const x = i * step + (step - bw) / 2;
+          for (const [lane, color, cy] of [['client', cClient, 30], ['operator', cOp, 90]]) {
+            const active = sp === lane && amp > 0;
+            const hh = active ? Math.max(3, amp * 26) : 1.5;
+            ctx.fillStyle = active ? color : cIdle;
+            ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, cy - hh, bw, hh * 2, bw / 2) : ctx.rect(x, cy - hh, bw, hh * 2); ctx.fill();
+          }
+        }
+        if (audio && isFinite(audio.currentTime)) { const px = (audio.currentTime / dur) * w; ctx.fillStyle = cOp; ctx.fillRect(px, 0, 2, hgt); }
+      };
+      const select = (idx, { scroll = true, seekAudio = true } = {}) => {
+        state.selected = idx;
+        trBox.querySelectorAll('.line.sel').forEach((e) => e.classList.remove('sel'));
+        const el = lineEls.get(idx);
+        if (el) { el.classList.add('sel'); if (scroll) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+        const m = T[idx - 1];
+        if (audio && seekAudio && m?.offset_sec != null) this.seek(audio, m.offset_sec, false);
+        history.replaceState(null, '', `#/c/${encodeURIComponent(conv.conversation_id)}?ev=${ev?.id || ''}&m=${idx}`);
+        draw();
+      };
+      canvas.addEventListener('click', (e) => {
+        const r = canvas.getBoundingClientRect(); const t = ((e.clientX - r.left) / r.width) * dur;
+        const m = [...T].reverse().find((x) => x.offset_sec != null && x.offset_sec <= t) || T[0];
+        if (audio) this.seek(audio, t, false);
+        select(m.idx, { seekAudio: false });
+      });
+      if (isCall) {
+        audio = h('audio', { preload: 'metadata', src: `${this.api}/api/audio/${encodeURIComponent(conv.conversation_id)}` });
+        media.append(audio);
+        playBtn.onclick = () => { if (audio.paused) audio.play().catch((e) => this.toast('Запись недоступна: ' + e.message, true)); else audio.pause(); };
+        audio.addEventListener('play', () => { playBtn.innerHTML = ICONS.pause; playBtn.setAttribute('aria-label', 'Пауза'); });
+        audio.addEventListener('pause', () => { playBtn.innerHTML = ICONS.play; playBtn.setAttribute('aria-label', 'Воспроизвести'); });
+        audio.addEventListener('loadedmetadata', () => { if (isFinite(audio.duration)) { dur = Math.max(audio.duration, lastOff + 1); range.max = Math.round(dur * 10); draw(); } });
+        audio.addEventListener('timeupdate', () => {
+          timeLbl.textContent = `${clock(audio.currentTime)} / ${clock(dur)}`;
+          range.value = Math.round(audio.currentTime * 10);
+          const cur = [...T].reverse().find((x) => x.offset_sec != null && x.offset_sec <= audio.currentTime);
+          if (!audio.paused && cur && cur.idx !== state.selected) select(cur.idx, { seekAudio: false });
+          else draw();
+        });
+        range.addEventListener('input', () => { audio.currentTime = range.value / 10; });
+        // волна из настоящей записи (файл через наш адрес → Web Audio)
+        fetch(`${this.api}/api/audio/${encodeURIComponent(conv.conversation_id)}/file`).then((r) => { if (!r.ok) throw new Error(); return r.arrayBuffer(); })
+          .then((buf) => new (window.AudioContext || window.webkitAudioContext)().decodeAudioData(buf))
+          .then((ab) => {
+            const N = 2000, data = ab.getChannelData(0), per = Math.floor(data.length / N); const out = new Float32Array(N); let mx = 0;
+            for (let i = 0; i < N; i++) { let s2 = 0; for (let j = i * per; j < (i + 1) * per; j += 8) s2 += data[j] * data[j]; out[i] = Math.sqrt(s2 / (per / 8)); mx = Math.max(mx, out[i]); }
+            peaks = out.map((v) => (mx ? v / mx : 0)); dur = Math.max(ab.duration, lastOff + 1); range.max = Math.round(dur * 10); draw();
+          }).catch(() => { /* остаётся хронология по транскрипту */ });
+      }
 
-      view.append(h('div', { class: 'card-grid' }, tr, right));
-      if (focusMsg) setTimeout(() => focus(Number(focusMsg)), 50);
+      // ---------- расшифровка ----------
+      const trBox = h('div', { class: 'tr-list' });
+      const lineEls = new Map();
+      for (const m of T) {
+        const el = h('button', { class: `line ${m.speaker}`, type: 'button', onclick: () => select(m.idx, { scroll: false }) },
+          h('span', { class: 'when' }, timeOf(m)), h('span', { class: 'who' }, ROLE[m.speaker] || m.speaker), h('span', { class: 'num' }, '#' + m.idx),
+          h('span', { class: 'what' }, m.text));
+        lineEls.set(m.idx, el);
+        trBox.append(el);
+      }
+      const trPanel = h('div', { class: 'panel tr-panel' }, h('h2', {}, 'Расшифровка'), trBox);
+
+      // ---------- оценка качества ----------
+      const qPanel = h('div', { class: 'panel q-panel' }, h('h2', {}, 'Оценка качества'));
+      const details = h('div', { class: 'stack' });
+      if (!ev) {
+        qPanel.append(h('div', { class: 'empty' }, 'Диалог ещё не оценён.', h('div', { style: { marginTop: '12px' } }, evalBtn.cloneNode(true))));
+        qPanel.querySelector('.empty button').onclick = () => evalBtn.click();
+      } else {
+        const ckl = ev.checklist; const fs = ev.final_score;
+        const rows = ckl.criteria.map((c) => ({ c, r: ev.criteria.find((x) => x.criterion_id === c.id) })).filter((x) => x.r);
+        const lost = rows.filter(({ c, r }) => c.type !== 'flag' && r.final_answer !== 'na' && r.final.points < r.final.max_points - 0.001);
+        let focusCrit = lost[0] || null;
+        const pct = fs.total == null ? 0 : fs.total / 100;
+        const R = 52, C = 2 * Math.PI * R;
+        const ring = h('div', { class: 'ring', html: `<svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="${R}" class="ring-bg"/><circle cx="60" cy="60" r="${R}" class="ring-fg" stroke-dasharray="${C * pct} ${C}" transform="rotate(-90 60 60)"/></svg>` },
+          h('div', { class: 'ring-val' }, h('b', {}, fs.total == null ? '—' : fmt(fs.total)), h('span', {}, '/ 100')));
+        const list = h('div', { class: 'q-list' });
+        for (const { c, r } of rows) {
+          if (c.type === 'flag') continue;
+          const p = r.final; const na = r.final_answer === 'na';
+          const state2 = na ? 'na' : p.points >= p.max_points - 0.001 ? 'ok' : p.points > 0 ? 'part' : 'no';
+          list.append(h('button', { class: `q-row ${state2}`, type: 'button', title: r.ai.explanation, onclick: () => { focusCrit = { c, r }; renderWhy(); } },
+            h('span', { class: 'q-ico', html: ICONS[state2 === 'no' ? 'no' : state2 === 'na' ? 'na' : 'ok'] }),
+            h('span', { class: 'q-name' }, c.name),
+            h('span', { class: 'q-pts' }, na ? 'N/A' : h('span', {}, h('b', {}, fmt(p.points, 1)), ` / ${fmt(p.max_points, 1)}`))));
+        }
+        const flag = rows.find(({ c }) => c.type === 'flag');
+        const why = h('div', { class: 'why' });
+        const renderWhy = () => {
+          const fc = focusCrit;
+          why.replaceChildren(
+            h('h3', {}, fc ? 'Почему снижена оценка' : 'Оценка без снижений'),
+            fc ? h('p', {}, h('b', {}, fc.c.name + ': '), fc.r.ai.explanation) : h('p', { class: 'muted' }, 'Все применимые критерии выполнены полностью.'),
+            lost.length > 1 ? h('div', { class: 'why-tabs' }, lost.map((x) => h('button', { type: 'button', class: 'chip-btn' + (x === fc ? ' on' : ''), onclick: () => { focusCrit = x; renderWhy(); } }, x.c.name))) : null,
+            h('div', { class: 'why-actions' },
+              h('button', { class: 'btn primary', type: 'button', disabled: !fc, onclick: () => {
+                const e = fc?.r.ai.evidence?.[0]?.message || fc?.r.ai.checked_range?.from; if (e) select(e); else this.toast('Модель не указала реплику для этого критерия', true);
+              } }, 'Перейти к фрагменту'),
+              h('button', { class: 'btn', type: 'button', disabled: !fc, onclick: () => { appealBox.replaceChildren(this.appealForm(ev, fc.c, () => this.render())); appealBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } }, 'Оспорить оценку')));
+        };
+        renderWhy();
+        const appealBox = h('div');
+        appendAll(qPanel,
+          h('div', { class: 'q-top' }, ring, list),
+          flag?.r.final_answer === 'yes' ? h('div', { class: 'gross', html: ICONS.warn }, h('span', {}, h('b', {}, 'Грубая ошибка. '), flag.r.ai.explanation)) : null,
+          fs.total !== ev.original_score.total ? h('div', { class: 'small muted' }, `После пересмотра. Исходная оценка ИИ: ${fmt(ev.original_score.total)}`) : null,
+          why, appealBox);
+        this.renderEvaluation(details, ev, conv, (idx) => select(idx), { noTotals: true });
+      }
+
+      appendAll(view, head, media, h('div', { class: 'card-cols' }, trPanel, qPanel), ev ? h('h2', { class: 'section-title' }, 'Подробно по критериям') : null, details);
+      requestAnimationFrame(draw);
+      new ResizeObserver(() => draw()).observe(canvas);
+      if (state.selected) setTimeout(() => select(state.selected), 60);
+    }
+
+    // =====================================================================
+    // Аналитика: сводка для руководителей и контроля качества
+    // =====================================================================
+    async viewAnalytics(view) {
+      const groups = await this.req('GET', '/api/groups');
+      const f = this.state.filters;
+      if (!f.group || !groups.some((g) => g.group_id === f.group)) f.group = groups.find((g) => g.group_id === 'DEV')?.group_id || groups[0]?.group_id || '';
+      const cl = this.checklist;
+      const a = await this.req('GET', `/api/analytics?group_id=${encodeURIComponent(f.group)}&checklist_id=${cl?.id || ''}`);
+      const tip = h('div', { class: 'tip', hidden: true, role: 'tooltip' });
+      const showTip = (e, text) => { tip.textContent = text; tip.hidden = false; tip.style.left = Math.min(e.clientX + 14, window.innerWidth - 300) + 'px'; tip.style.top = (e.clientY + 14) + 'px'; };
+      const hideTip = () => { tip.hidden = true; };
+      const hover = (el, text) => { el.addEventListener('mousemove', (e) => showTip(e, text)); el.addEventListener('mouseleave', hideTip); el.addEventListener('focus', (e) => { const r = el.getBoundingClientRect(); showTip({ clientX: r.right, clientY: r.top }, text); }); el.addEventListener('blur', hideTip); el.tabIndex = 0; return el; };
+      const tableToggle = (rows, headers) => h('details', { class: 'as-table' }, h('summary', {}, 'Показать таблицей'),
+        h('div', { class: 'table-wrap' }, h('table', {}, h('thead', {}, h('tr', {}, headers.map((x) => h('th', {}, x)))), h('tbody', {}, rows.map((r) => h('tr', {}, r.map((x) => h('td', {}, x))))))));
+
+      const kpi = (label, value, note) => h('div', { class: 'panel kpi' }, h('span', { class: 'kpi-l' }, label), h('b', {}, value), note ? h('span', { class: 'kpi-n' }, note) : null);
+      const head = h('div', { class: 'page-head' },
+        h('div', {}, h('h1', {}, 'Аналитика'), h('div', { class: 'sub' }, `Набор ${f.group || '—'} · чек-лист «${a.checklist.name}» v${a.checklist.version}`)),
+        h('div', { class: 'row' }, h('select', { 'aria-label': 'Набор', onchange: (e) => { f.group = e.target.value; try { localStorage.setItem('cqa.group', f.group); } catch { /* */ } this.render(); } },
+          groups.map((g) => h('option', { value: g.group_id, selected: g.group_id === f.group ? 'selected' : null }, `${g.group_id} (${g.count})`)))));
+
+      if (!a.evaluated) { view.append(head, h('div', { class: 'panel empty' }, 'В этом наборе пока нет оценок. Откройте «Диалоги» и нажмите «Оценить все показанные».')); return; }
+
+      // выполнение по критериям — горизонтальные столбики, один цвет
+      const critRows = a.criteria.filter((c) => c.type !== 'flag');
+      const critChart = h('div', { class: 'hbars' }, critRows.map((c) => h('div', { class: 'hbar-row' },
+        h('span', { class: 'hbar-name' }, `${c.code} ${c.name}`),
+        hover(h('div', { class: 'hbar-track' }, h('div', { class: 'hbar-fill', style: { width: (c.rate ?? 0) + '%' } })), `${c.name}: ${c.rate == null ? 'нет применимых' : fmt(c.rate, 1) + '%'} · применимо ${c.applicable} из ${c.evaluated}, N/A ${c.na}`),
+        h('span', { class: 'hbar-val' }, c.rate == null ? '—' : fmt(c.rate, 1) + '%'))));
+
+      // распределение итогов — вертикальная гистограмма
+      const maxH = Math.max(1, ...a.histogram.map((b) => b.count));
+      const hist = h('div', { class: 'vbars' }, a.histogram.map((b) => h('div', { class: 'vbar-col' },
+        hover(h('div', { class: 'vbar-track' }, h('div', { class: 'vbar-fill', style: { height: (b.count / maxH) * 100 + '%' } })), `${b.from}–${b.to}: ${b.count} диал.`),
+        h('span', { class: 'vbar-x' }, b.from))));
+
+      const langChart = h('div', { class: 'hbars' }, a.by_language.map((l) => h('div', { class: 'hbar-row' },
+        h('span', { class: 'hbar-name' }, LANG_NAME[l.key] || l.key),
+        hover(h('div', { class: 'hbar-track' }, h('div', { class: 'hbar-fill', style: { width: (l.avg ?? 0) + '%' } })), `${LANG_NAME[l.key] || l.key}: средний итог ${fmt(l.avg)} по ${l.count} диал.`),
+        h('span', { class: 'hbar-val' }, fmt(l.avg)))));
+
+      const weakest = h('div', { class: 'weak' }, a.weakest.map((w) => h('a', { class: 'weak-row', href: `#/c/${encodeURIComponent(w.conversation_id)}` },
+        h('span', {}, w.conversation_id), w.gross ? h('span', { class: 'tag no' }, 'грубая ошибка') : h('span'), h('b', {}, fmt(w.total)))));
+
+      view.append(head,
+        h('div', { class: 'kpis' },
+          kpi('Средний итог', fmt(a.avg), `медиана ${fmt(a.median)}`),
+          kpi('Оценено', `${a.evaluated} из ${a.conversations}`, a.evaluated < a.conversations ? 'есть неоценённые диалоги' : 'весь набор'),
+          kpi('Грубые ошибки', String(a.gross.length), a.gross.length ? a.gross.slice(0, 3).join(', ') + (a.gross.length > 3 ? '…' : '') : 'не выявлено'),
+          kpi('Апелляции', `${a.appeals.open} открыто`, `рассмотрено ${a.appeals.resolved}, изменено ${a.appeals.changed}`)),
+        h('div', { class: 'an-grid' },
+          h('div', { class: 'panel' }, h('h2', {}, 'Выполнение по критериям'), h('p', { class: 'small muted' }, 'Доля набранных баллов среди диалогов, где критерий применим. N/A не учитывается.'), critChart,
+            tableToggle(critRows.map((c) => [`${c.code} ${c.name}`, c.rate == null ? '—' : fmt(c.rate, 1) + '%', c.applicable, c.na]), ['Критерий', 'Выполнение', 'Применимо', 'N/A'])),
+          h('div', { class: 'stack' },
+            h('div', { class: 'panel' }, h('h2', {}, 'Распределение итогов'), h('p', { class: 'small muted' }, 'Число диалогов по диапазонам итогового балла.'), hist,
+              tableToggle(a.histogram.map((b) => [`${b.from}–${b.to}`, b.count]), ['Диапазон', 'Диалогов'])),
+            h('div', { class: 'panel' }, h('h2', {}, 'Средний итог по языкам'), langChart,
+              tableToggle(a.by_language.map((l) => [LANG_NAME[l.key] || l.key, fmt(l.avg), l.count]), ['Язык', 'Средний итог', 'Диалогов'])))),
+        h('div', { class: 'panel' }, h('h2', {}, 'Требуют внимания'), h('p', { class: 'small muted' }, 'Диалоги с самым низким итогом.'), weakest),
+        tip);
     }
 
     seek(audio, sec, play = true) {
@@ -343,11 +552,11 @@
       else { audio.preload = 'auto'; audio.addEventListener('loadedmetadata', doSeek, { once: true }); audio.load(); }
     }
 
-    renderEvaluation(root, ev, conv, jump) {
+    renderEvaluation(root, ev, conv, jump, opts = {}) {
       const cl = ev.checklist;
       const fs = ev.final_score, os = ev.original_score;
       const changed = fs.total !== os.total;
-      root.append(h('div', { class: 'panel' },
+      if (!opts.noTotals) root.append(h('div', { class: 'panel' },
         h('div', { class: 'totals' },
           h('div', {},
             h('div', { class: 'score big' }, fs.total == null ? '—' : fmt(fs.total)),
@@ -629,7 +838,7 @@
 
       const box = h('div', { class: 'crit-edit stack' },
         h('div', { class: 'grid' },
-          h('label', { class: 'field' }, 'Код', inp(c, 'code')),
+          h('label', { class: 'field', title: 'Код критерия в results.json организаторов: contact, discovery, identification, consultation, empathy, dialogue, closure, critical' }, 'Код / в выгрузке', h('div', { class: 'row', style: { flexWrap: 'nowrap', gap: '4px' } }, inp(c, 'code', { style: { width: '48px' } }), inp(c, 'export_id', { style: { width: '120px' }, placeholder: 'contact' }))),
           h('label', { class: 'field' }, 'Название', inp(c, 'name')),
           h('label', { class: 'field' }, 'Секция', secSel),
           h('label', { class: 'field' }, 'Тип ответа', typeSel),

@@ -181,3 +181,20 @@ test('очередь продолжается после перезапуска 
   assert.equal(job.status, 'finished');
   assert.equal(job.done, 2, 'диалог «в работе» вернулся в очередь и оценён');
 });
+
+test('аналитика и results.json по набору', async () => {
+  const an = await api('GET', '/api/analytics?group_id=B&checklist_id=cqa-default');
+  assert.equal(an.status, 200);
+  assert.equal(an.data.evaluated, 3);
+  assert.equal(an.data.criteria.length, 8);
+  assert.equal(an.data.histogram.reduce((s, b) => s + b.count, 0), 3);
+  const r = await api('GET', '/api/results?group_id=B&checklist_id=cqa-default');
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.data.problems, [], 'формат проходит проверку');
+  assert.equal(r.data.doc.schema_version, '1.0');
+  assert.equal(r.data.doc.results.length, 3);
+  assert.deepEqual(r.data.doc.results[0].criteria.map((c) => c.criterion_id), ['contact', 'discovery', 'identification', 'consultation', 'empathy', 'dialogue', 'closure', 'critical']);
+  const p = await api('GET', '/api/results?group_id=B&expect=10');
+  assert.ok(p.data.problems.some((x) => /ожидается 10/.test(x)));
+  assert.equal((await api('GET', '/api/audio/t-chat-1/file')).status, 404);
+});
