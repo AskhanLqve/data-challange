@@ -45,7 +45,7 @@ if (synth) {
 const convs = new Map((await api('GET', '/api/conversations')).map((c) => [c.conversation_id, c]));
 const preds = new Map(); // conversation_id → { answers, total, explanations, evaluation_id }
 const toPred = (ev) => ({
-  evaluation_id: ev.id, total: ev.original_score.total,
+  evaluation_id: ev.id, total: ev.original_score.total, duration_ms: ev.duration_ms, cost_usd: ev.cost_usd, model: ev.model, provider: ev.provider,
   answers: Object.fromEntries(ev.criteria.map((c) => [c.criterion_id, c.ai.answer])),
   explanations: Object.fromEntries(ev.criteria.map((c) => [c.criterion_id, c.ai.explanation])),
 });
@@ -152,7 +152,11 @@ const report = md.join('\n') + '\n';
 fs.mkdirSync('eval/reports', { recursive: true });
 fs.writeFileSync('eval/LATEST.md', report);
 const stamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
-fs.writeFileSync(`eval/reports/${stamp}.json`, JSON.stringify({ date: now, model: health, checklist_version: checklist.version, run: RUN, overall, byCrit: Object.fromEntries(byCrit), byLang: Object.fromEntries(byLang), dialogs: allItems.length, mae, gross, mismatches, totals }, null, 1));
+fs.writeFileSync(`eval/reports/${stamp}.json`, JSON.stringify({ date: now, model: health, checklist_version: checklist.version, run: RUN, overall, byCrit: Object.fromEntries(byCrit), byLang: Object.fromEntries(byLang), dialogs: allItems.length, mae,
+  // время и стоимость одной оценки — для сравнения моделей (локальная / облачная)
+  avg_sec: preds.size ? Math.round([...preds.values()].reduce((a, p) => a + (p.duration_ms || 0), 0) / preds.size / 100) / 10 : null,
+  avg_cost_usd: preds.size ? Math.round([...preds.values()].reduce((a, p) => a + (p.cost_usd || 0), 0) / preds.size * 10000) / 10000 : null,
+  recheck: health.recheck ?? null, gross, mismatches, totals }, null, 1));
 
 // краткая сводка в консоль
 console.log(`\nСовпадение ответов: ${pct(overall.all)} (без спорных ${pct(overall.sure)}) · MAE итога ${mae ?? '—'} · грубые ошибки ${gross.tp}/${gross.tp + gross.fn} найдено, ложных ${gross.fp}`);

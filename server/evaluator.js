@@ -6,6 +6,9 @@ import { db, newId } from './db.js';
 import { ruleFor } from './rules.js';
 
 const RUNS = Math.max(1, Number(process.env.CQA_RUNS || 1)); // >1 — голосование нескольких прогонов
+// Перепроверка: критерии с поводом для сомнения оцениваются ещё N раз (другой seed), ответ — большинством.
+// Только режим per-criterion: дешевле, чем CQA_RUNS=3 для всех критериев.
+export const RECHECK = Math.max(0, Number(process.env.CQA_RECHECK ?? 2));
 // single — все критерии одним вызовом (сильные облачные модели, дешевле);
 // per-criterion — отдельный короткий вызов на каждый критерий (точнее для небольших локальных моделей).
 export const MODE = process.env.CQA_MODE || (PROVIDER === 'ollama' ? 'per-criterion' : 'single');
@@ -258,6 +261,29 @@ export async function evaluateConversation(conv, checklist, { runs = RUNS, mode 
   const validated = calls.map((r) => validateRun(checklist, conv, r.parsed));
   const merged = runs > 1 ? vote(checklist, validated) : Object.fromEntries(Object.entries(validated[0]).map(([k, v]) => [k, { ...v, agreement: 1 }]));
 
+  // перепроверка сомнительных критериев (ответ правила и грубая ошибка не перепроверяются: их подтверждает человек)
+  const rechecked = [];
+  if (perCriterion && RECHECK > 0 && runs === 1) {
+    for (const c of checklist.criteria) {
+      const m = merged[c.id];
+      if (!m?.answer || m.source === 'rule' || c.type === 'flag') continue;
+      const reasons = doubtsFor(c, m, conv);
+      if (!reasons.length) continue;
+      if (signal?.aborted) throw new Error('Оценка остановлена');
+      const rule = ruleFor(conv, c); const crit = rule?.criterion || c;
+      const extra = [];
+      for (let k = 1; k <= RECHECK; k++) {
+        const r = await completeJSON({ system: buildCriterionSystemPrompt(checklist), user: buildCriterionUserPrompt(conv, crit, rule?.note), schema: criterionItem(crit), temperature: 0.7, seed: 42 + k });
+        extra.push(validateRun({ criteria: [c] }, conv, { criteria: { [c.id]: r.parsed } })[c.id]);
+        calls.push({ ...r, parsed: { summary: '' } });
+      }
+      const voted = vote({ criteria: [c] }, [{ [c.id]: m }, ...extra.map((x) => ({ [c.id]: x }))])[c.id];
+      rechecked.push({ criterion_id: c.id, reasons, before: m.answer, votes: voted.votes, after: voted.answer });
+      merged[c.id] = { ...voted, source: 'model' };
+      onCriterion?.({ criterion_id: c.id, answer: voted.answer, label: answerLabel(c, voted.answer), explanation: voted.explanation, rule: false, rechecked: true });
+    }
+  }
+
   const missing = checklist.criteria.filter((c) => merged[c.id]?.answer == null).map((c) => c.id);
   if (missing.length) throw new Error(`Модель не оценила критерии: ${missing.join(', ')}`);
 
@@ -294,7 +320,7 @@ export async function evaluateConversation(conv, checklist, { runs = RUNS, mode 
     original_score: score,
     final_score: score,
     status: 'evaluated',
-    needs_review: review_reasons.length > 0, review_reasons,
+    needs_review: review_reasons.length > 0, review_reasons, rechecked,
     trace: { system_prompt: system, user_prompt: user, raw_outputs: calls.map((r) => r.text) },
   };
 }

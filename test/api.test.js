@@ -156,7 +156,7 @@ test('живая оценка: поток NDJSON по критериям, зат
   assert.equal(res.status, 200);
   const lines = (await res.text()).trim().split('\n').map((l) => JSON.parse(l));
   assert.equal(lines[0].type, 'start');
-  const crit = lines.filter((l) => l.type === 'criterion');
+  const crit = lines.filter((l) => l.type === 'criterion' && !l.rechecked);
   assert.equal(crit.length, lines[0].criteria.length, 'по строке на каждый критерий');
   assert.ok(crit.every((c) => c.label), 'у каждого критерия подпись ответа');
   const done = lines.at(-1);
@@ -171,6 +171,16 @@ test('точность ИИ: сводка последнего замера', as
     assert.ok(r.data.agreement >= 0 && r.data.agreement <= 100);
     assert.ok(r.data.criteria.length > 0 && r.data.criteria.every((c) => c.name));
   }
+});
+
+test('перепроверка спорных критериев: ещё два ответа модели и голосование', async () => {
+  const ev = await api('POST', '/api/evaluate', { conversation_id: 't-chat-1', checklist_id: 'cqa-default', mode: 'per-criterion' });
+  assert.equal(ev.status, 200);
+  assert.ok(Array.isArray(ev.data.rechecked));
+  // заглушка цитирует «stub», которого нет в диалоге, — повод для сомнения, значит перепроверка была
+  assert.ok(ev.data.rechecked.length > 0, 'спорные критерии перепроверены');
+  for (const r of ev.data.rechecked) assert.equal(r.votes.length, 3);
+  assert.ok(ev.data.rechecked.every((r) => !['c01'].includes(r.criterion_id)), 'ответ правила не перепроверяется');
 });
 
 test('пакетная оценка, сохранение очереди и экспорт', async () => {

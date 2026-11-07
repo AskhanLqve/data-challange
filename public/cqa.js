@@ -106,7 +106,7 @@
         h('div', { class: 'live-head' }, h('strong', {}, 'Оценка ИИ'), h('span', { class: 'muted' }, conversationId)), status, list, actions);
       this.append(card);
       const rows = new Map(); let total = 0; let done = 0;
-      const tick = () => { const sec = Math.round((Date.now() - started) / 1000); if (done < total) status.textContent = `Критерий ${done + 1} из ${total} · ${sec} с${sec > 120 ? ' · дольше обычного (~1 мин)' : ''}`; };
+      const tick = () => { const sec = Math.round((Date.now() - started) / 1000); if (!total) return; status.textContent = done < total ? `Критерий ${done + 1} из ${total} · ${sec} с${sec > 120 ? ' · дольше обычного (~1 мин)' : ''}` : `Перепроверяю спорные критерии · ${sec} с`; };
       const timer = setInterval(tick, 1000);
       const ac = new AbortController();
       const stopBtn = h('button', { class: 'btn', onclick: () => ac.abort() }, 'Остановить');
@@ -143,11 +143,12 @@
           tick();
         } else if (m.type === 'criterion') {
           const r = rows.get(m.criterion_id); if (!r) return;
-          done++;
+          if (!m.rechecked) done++;
           // цвет — хорошо/плохо, а не буква ответа: у флага «Да» — нарушение, у шкалы цвет по доле баллов
           const tone = r.type === 'flag' ? (m.answer === 'yes' ? 'bad' : 'ok') : m.answer === 'na' ? 'na' : m.answer === 'no' ? 'bad' : m.answer === 'yes' || r.max === Number(m.answer) ? 'ok' : 'mid';
           r.li.className = `done t-${tone}`;
-          r.st.replaceChildren(...[h('b', {}, m.label), m.rule && h('span', { class: 'live-rule', title: 'Факт проверен кодом, без модели' }, 'правило')].filter(Boolean));
+          r.st.replaceChildren(...[h('b', {}, m.label), m.rule && h('span', { class: 'live-rule', title: 'Факт проверен кодом, без модели' }, 'правило'),
+            m.rechecked && h('span', { class: 'live-rule', title: 'Был повод для сомнения — модель ответила ещё дважды, выбран ответ большинства' }, 'перепроверено')].filter(Boolean));
           r.li.title = m.explanation || '';
           const next = [...rows.values()].find((x) => x.li.className === 'wait');
           if (next) { next.li.className = 'work'; next.st.textContent = 'оценивается…'; }
@@ -643,9 +644,10 @@
       const f = this.state.filters;
       if (!f.group || !groups.some((g) => g.group_id === f.group)) f.group = groups.find((g) => g.group_id === 'DEV')?.group_id || groups[0]?.group_id || '';
       const cl = this.checklist;
-      const [a, acc] = await Promise.all([
+      const [a, acc, models] = await Promise.all([
         this.req('GET', `/api/analytics?group_id=${encodeURIComponent(f.group)}&checklist_id=${cl?.id || ''}`),
-        this.req('GET', '/api/accuracy').catch(() => ({ date: null }))]);
+        this.req('GET', '/api/accuracy').catch(() => ({ date: null })),
+        this.req('GET', '/api/accuracy/models').catch(() => ({ rows: [] }))]);
       const tip = h('div', { class: 'tip', hidden: true, role: 'tooltip' });
       const showTip = (e, text) => { tip.textContent = text; tip.hidden = false; tip.style.left = Math.min(e.clientX + 14, window.innerWidth - 300) + 'px'; tip.style.top = (e.clientY + 14) + 'px'; };
       const hideTip = () => { tip.hidden = true; };
@@ -696,7 +698,20 @@
           kpi('Грубые ошибки', `${acc.gross.tp} из ${acc.gross.tp + acc.gross.fn}`, `найдено ИИ; ложных срабатываний ${acc.gross.fp}`)),
         h('div', { class: 'an-grid' },
           h('div', {}, h('h3', {}, 'По критериям'), bars(acc.criteria.map((c) => ({ ...c, name: `${c.code || ''} ${c.name}`.trim() })))),
-          acc.languages.length ? h('div', {}, h('h3', {}, 'По языкам'), bars(acc.languages.map((l) => ({ ...l, name: LANG_NAME[l.key] || l.key })))) : null)) : null;
+          acc.languages.length ? h('div', {}, h('h3', {}, 'По языкам'), bars(acc.languages.map((l) => ({ ...l, name: LANG_NAME[l.key] || l.key })))) : null),
+        models.rows.length ? h('div', {},
+          h('h3', {}, 'Модели: локальная и облачная'),
+          h('div', { class: 'table-wrap' }, h('table', {},
+            h('thead', {}, h('tr', {}, ['Модель', 'Где работает', 'Диалогов', 'Совпадение', 'Без спорных', 'Ошибка итога', 'Время оценки', 'Стоимость оценки'].map((x) => h('th', {}, x)))),
+            h('tbody', {},
+              models.rows.map((m) => h('tr', {},
+                h('td', {}, m.model, m.recheck ? h('div', { class: 'small muted' }, '+ перепроверка спорных') : null),
+                h('td', {}, m.provider === 'anthropic' ? 'облако' : 'локально, данные не уходят наружу'),
+                h('td', {}, m.dialogs), h('td', {}, h('b', {}, fmt(m.agreement, 1) + '%')), h('td', {}, fmt(m.agreement_sure, 1) + '%'),
+                h('td', {}, fmt(m.mae, 1)), h('td', {}, m.avg_sec == null ? '—' : `${fmt(m.avg_sec, 0)} с`),
+                h('td', {}, m.avg_cost_usd == null ? '—' : m.avg_cost_usd === 0 ? 'бесплатно' : '$' + fmt(m.avg_cost_usd, 4)))),
+              models.cloud_measured ? null : h('tr', {}, h('td', {}, 'Claude'), h('td', {}, 'облако'),
+                h('td', { colspan: 6, class: 'muted' }, 'не замерено: задайте ANTHROPIC_API_KEY в .env и запустите pnpm eval --run --set dev')))))) : null) : null;
 
       view.append(head,
         h('div', { class: 'kpis' },
@@ -1043,6 +1058,7 @@
           ai.checked_range ? h('div', { class: 'small', style: { marginTop: '4px' } },
             h('a', { href: 'javascript:void 0', onclick: () => jump(ai.checked_range.from, ai.checked_range) }, ai.checked_range.from === ai.checked_range.to ? `Проверенный участок: реплика #${ai.checked_range.from}` : `Проверенный участок: реплики #${ai.checked_range.from}–#${ai.checked_range.to}`)) : null,
           ai.source === 'rule' ? h('div', { class: 'small muted' }, 'Проверено правилом в коде, без модели.') : null,
+          ai.votes?.length > 1 && ev.runs === 1 ? h('div', { class: 'small muted' }, `Перепроверено: ответы модели ${ai.votes.map((v) => answerLabel(c, v)).join(', ')} — выбран ответ большинства.`) : null,
           ai.doubts?.length ? h('div', { class: 'small', style: { color: 'var(--warn)' } }, 'Проверьте: ', ai.doubts.join('; ')) : ai.warning ? h('div', { class: 'small', style: { color: 'var(--warn)' } }, ai.warning) : null,
           ai.agreement != null && ev.runs > 1 ? h('div', { class: 'small muted' }, `согласие прогонов: ${Math.round(ai.agreement * 100)}% (${(ai.votes || []).join(', ')})`) : null,
           r.review ? h('div', { class: 'review' },

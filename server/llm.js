@@ -72,8 +72,8 @@ export async function completeJSON(args) {
   throw lastErr;
 }
 
-async function completeOnce({ system, user, schema }) {
-  if (PROVIDER === 'ollama') return ollamaJSON({ system, user, schema });
+async function completeOnce({ system, user, schema, temperature, seed }) {
+  if (PROVIDER === 'ollama') return ollamaJSON({ system, user, schema, temperature, seed });
   if (PROVIDER === 'stub') return stubJSON({ schema });
   return anthropicJSON({ system, user, schema });
 }
@@ -107,7 +107,7 @@ async function anthropicJSON({ system, user, schema }) {
   return { parsed, usage: res.usage, model: res.model, cost_usd: estimateCost(MODEL, res.usage), stop_reason: res.stop_reason, text };
 }
 
-async function ollamaJSON({ system, user, schema }) {
+async function ollamaJSON({ system, user, schema, temperature = 0, seed = 42 }) {
   const res = await fetch(`${OLLAMA_URL}/api/chat`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -116,7 +116,7 @@ async function ollamaJSON({ system, user, schema }) {
       stream: false,
       format: z.toJSONSchema(schema),
       // temperature 0 + seed — воспроизводимая оценка; ответ одного критерия короткий, длину ограничиваем
-      options: { temperature: 0, seed: 42, num_ctx: Number(process.env.OLLAMA_NUM_CTX || 12288), num_predict: Number(process.env.OLLAMA_NUM_PREDICT || 2048) },
+      options: { temperature, seed, num_ctx: Number(process.env.OLLAMA_NUM_CTX || 12288), num_predict: Number(process.env.OLLAMA_NUM_PREDICT || 2048) },
       keep_alive: process.env.OLLAMA_KEEP_ALIVE || '30m', // модель остаётся в памяти между диалогами
       ...(process.env.OLLAMA_THINK ? { think: process.env.OLLAMA_THINK === 'true' } : {}), // для моделей с режимом рассуждения (qwen3)
       messages: [{ role: 'system', content: system }, { role: 'user', content: user }],

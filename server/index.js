@@ -7,7 +7,7 @@ import { DEFAULT_CHECKLIST } from './defaultChecklist.js';
 import { fetchGroup, extractRecords, importRecords, resolveAudio, localUpload, normalizeRecord } from './dataset.js';
 import { transcribeFile, asrAvailable, ASR_MODEL } from './asr.js';
 import { conversationMetrics } from './metrics.js';
-import { evaluateConversation, recomputeFinal, startBatch, getJob, listJobs, publicJob, resumeJobs, saveEvaluation, migrateTraces, backfillReview, MODE } from './evaluator.js';
+import { evaluateConversation, recomputeFinal, startBatch, getJob, listJobs, publicJob, resumeJobs, saveEvaluation, migrateTraces, backfillReview, MODE, RECHECK } from './evaluator.js';
 import { providerInfo, providerReady, completeText } from './llm.js';
 import { allowedAnswers, answerLabel, computeScore, normalizeAnswer } from './scoring.js';
 import { buildResults, validateResults } from './results.js';
@@ -85,7 +85,7 @@ function csvEscape(v) { const s = v == null ? '' : String(v); return /[",\n;]/.t
 const routes = [];
 const route = (method, pattern, handler, opts = {}) => routes.push({ method, re: new RegExp('^' + pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)') + '$'), handler, ...opts });
 
-route('GET', '/api/health', async () => ({ ok: true, ...providerInfo(), ...(await providerReady()) }));
+route('GET', '/api/health', async () => ({ ok: true, ...providerInfo(), recheck: MODE === 'per-criterion' ? RECHECK : 0, ...(await providerReady()) }));
 
 // Чек-листы
 route('GET', '/api/checklists', () => db.all('checklists'));
@@ -241,12 +241,31 @@ route('GET', '/api/analytics', ({ q }) => {
 });
 
 // Точность ИИ относительно экспертной разметки: последний отчёт `pnpm eval --run` (eval/reports).
-route('GET', '/api/accuracy', () => {
+function accuracyReports() {
   const dir = path.resolve('eval', 'reports');
   const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith('.json')).sort().reverse() : [];
-  for (const f of files) {
-    const r = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
-    if (!r.run) continue;
+  return files.map((f) => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'))).filter((r) => r.run);
+}
+// Сравнение моделей: последний полный замер (наибольший набор) каждой модели.
+route('GET', '/api/accuracy/models', () => {
+  const best = new Map();
+  for (const r of accuracyReports()) {
+    const key = `${r.model?.provider}/${r.model?.model}${r.recheck ? ' +перепроверка' : ''}`;
+    const n = r.dialogs ?? r.totals?.length ?? 0;
+    const cur = best.get(key);
+    if (!cur || n > cur.n) best.set(key, { n, r });
+  }
+  const pct = (x) => (x?.n ? Math.round((x.ok / x.n) * 1000) / 10 : null);
+  // у старых отчётов нет времени — берём среднее по сохранённым оценкам этой модели
+  const avgSec = (model) => { const xs = db.filter('evaluations', (e) => e.model === model && e.status !== 'manual' && e.duration_ms > 0).map((e) => e.duration_ms); return xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length / 100) / 10 : null; };
+  const rows = [...best.entries()].map(([key, { n, r }]) => ({
+    key, provider: r.model?.provider, model: r.model?.model, recheck: Boolean(r.recheck), dialogs: n, date: r.date,
+    agreement: pct(r.overall.all), agreement_sure: pct(r.overall.sure), mae: r.mae, avg_sec: r.avg_sec ?? avgSec(r.model?.model), avg_cost_usd: r.avg_cost_usd ?? (r.model?.provider === 'ollama' ? 0 : null),
+  })).sort((a, b) => b.dialogs - a.dialogs || (b.agreement ?? 0) - (a.agreement ?? 0));
+  return { rows, cloud_measured: rows.some((x) => x.provider === 'anthropic') };
+});
+route('GET', '/api/accuracy', () => {
+  for (const r of accuracyReports()) {
     const cl = db.all('checklists')[0];
     const pct = (x) => (x?.n ? Math.round((x.ok / x.n) * 1000) / 10 : null);
     return {
