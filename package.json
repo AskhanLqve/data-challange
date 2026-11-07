@@ -16,7 +16,7 @@
     "restore": "node scripts/snapshot.js restore"
   },
   "engines": {
-    "node": ">=20.6"
+    "node": ">=22.9"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.6.0",
