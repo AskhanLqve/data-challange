@@ -20,81 +20,120 @@
 
 **Скорость оценки одного диалога:** около 1,5–2 минут на видеокарте 6 ГБ (RTX 4050 Laptop). Без видеокарты модель работает на процессоре — в разы медленнее (не замерялось). Для быстрой проверки достаточно оценить 1–2 коротких чата.
 
-### 1. Node.js и pnpm
+Ниже — полный путь от чистого компьютера до запущенного сайта, отдельно для каждой системы. Выберите свою и выполняйте команды по порядку.
 
-**Windows** (PowerShell):
+**Перейти:** [Windows](#установка-на-windows-1011) · [macOS](#установка-на-macos) · [Linux](#установка-на-linux) · [Если что-то не работает](#если-что-то-не-работает)
+
+### Установка на Windows 10/11
+
+Все команды — в **PowerShell** (Пуск → «PowerShell»).
+
+**1. Node.js, pnpm и Git**
 ```powershell
-winget install OpenJS.NodeJS.LTS      # или установщик с https://nodejs.org (версия 22 LTS)
-# откройте новое окно PowerShell, затем:
+winget install OpenJS.NodeJS.LTS
+winget install Git.Git
+```
+Закройте и откройте PowerShell заново (чтобы подхватились пути), затем:
+```powershell
 npm install -g pnpm
+node -v          # должно быть v22.9 или выше
 ```
 
-**macOS:**
+**2. Ollama и модель**
+```powershell
+winget install Ollama.Ollama      # или установщик с https://ollama.com/download/windows
+```
+Ollama запустится сама и будет работать в фоне (значок в трее). Скачайте модель (~5 ГБ):
+```powershell
+ollama pull qwen3:8b
+ollama list                       # в списке должна быть qwen3:8b
+```
+
+**3. Проект и запуск**
+```powershell
+git clone https://github.com/AskhanLqve/data-challange.git
+cd data-challange
+pnpm install
+Copy-Item .env.example .env
+notepad .env                      # впишите CQA_DATASET_API_URL (ссылка «GET для DEV» из гайда), сохраните
+pnpm start
+```
+Откройте в браузере http://localhost:3000.
+
+### Установка на macOS
+
+Все команды — в приложении **Терминал**. Нужен Homebrew (https://brew.sh): `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`.
+
+**1. Node.js и pnpm** (Git на macOS уже есть)
 ```bash
-brew install node@22 && brew link --overwrite node@22   # или установщик с https://nodejs.org
+brew install node@22
+brew link --overwrite node@22
 npm install -g pnpm
+node -v          # должно быть v22.9 или выше
 ```
 
-**Linux:**
-```bash
-# через nvm (любой дистрибутив)
-curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-# откройте новый терминал, затем:
-nvm install 22
-npm install -g pnpm
-```
+**2. Ollama и модель**
 
-Проверка: `node -v` (должно быть v22.9 или выше) и `pnpm -v`.
-
-### 2. Ollama и модель qwen3:8b
-
-**Windows:** скачайте и запустите установщик с https://ollama.com/download/windows (или `winget install Ollama.Ollama`). Ollama запускается сама и работает в фоне (значок в трее).
-
-**macOS:** скачайте приложение с https://ollama.com/download/mac, перенесите в «Программы» и откройте один раз — дальше работает в фоне.
-
-**Linux:**
-```bash
-curl -fsSL https://ollama.com/install.sh | sh    # ставит Ollama как службу systemd
-```
-
-Затем на любой системе скачайте модель (около 5 ГБ):
+Скачайте Ollama с https://ollama.com/download/mac, перенесите в «Программы» и откройте один раз — дальше она работает в фоне (значок в строке меню). Затем:
 ```bash
 ollama pull qwen3:8b
-ollama list          # в списке должна быть qwen3:8b
+ollama list                       # в списке должна быть qwen3:8b
 ```
 
-### 3. Проект
-
+**3. Проект и запуск**
 ```bash
 git clone https://github.com/AskhanLqve/data-challange.git
 cd data-challange
 pnpm install
-```
-
-Файл настроек — копия примера:
-- Windows (PowerShell): `Copy-Item .env.example .env`
-- macOS / Linux: `cp .env.example .env`
-
-Откройте `.env` в любом редакторе и впишите `CQA_DATASET_API_URL` — ссылку «GET для DEV» из гайда организаторов, без `group_id`. Остальное уже настроено на локальную qwen3:8b.
-
-### 4. Запуск
-
-```bash
+cp .env.example .env
+open -e .env                      # впишите CQA_DATASET_API_URL (ссылка «GET для DEV» из гайда), сохраните
 pnpm start
 ```
+Откройте в браузере http://localhost:3000.
 
-- лендинг: http://localhost:3000
-- приложение: http://localhost:3000/app.html
+### Установка на Linux
 
-В другом окне терминала можно проверить готовность: `pnpm check` (сервер, модель, адрес API, данные).
+Проверено на Fedora; на Ubuntu/Debian команды те же.
 
-**Первые шаги в приложении:** «Диалоги» → в поле набора `DEV` → «Загрузить из API» → откройте любой чат → «Оценить» (критерии появятся по одному, около 1,5–2 минут). Свой диалог без API: «Новая проверка» → конструктор чата, файл или запись. Весь набор DEV (65 диалогов) оценивается около двух часов — кнопка «Оценить все показанные».
+**1. Node.js и pnpm** (через nvm — работает на любом дистрибутиве)
+```bash
+curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+# откройте новый терминал, затем:
+nvm install 22
+npm install -g pnpm
+node -v          # должно быть v22.9 или выше
+```
+
+**2. Ollama и модель**
+```bash
+curl -fsSL https://ollama.com/install.sh | sh    # ставит Ollama как службу systemd
+ollama pull qwen3:8b
+ollama list                                      # в списке должна быть qwen3:8b
+```
+
+**3. Проект и запуск**
+```bash
+git clone https://github.com/AskhanLqve/data-challange.git
+cd data-challange
+pnpm install
+cp .env.example .env
+nano .env                         # впишите CQA_DATASET_API_URL (ссылка «GET для DEV» из гайда), сохраните
+pnpm start
+```
+Откройте в браузере http://localhost:3000.
+
+### После запуска (любая система)
+
+- лендинг: http://localhost:3000, приложение: http://localhost:3000/app.html
+- проверка готовности — в другом окне терминала, в папке проекта: `pnpm check`
+- **первые шаги:** «Диалоги» → в поле набора `DEV` → «Загрузить из API» → откройте любой чат → «Оценить» (критерии появятся по одному, около 1,5–2 минут). Свой диалог без API: «Новая проверка» → конструктор чата, файл или запись. Весь набор DEV (65 диалогов) оценивается около двух часов — «Оценить все показанные».
+- остановить сервер: `Ctrl+C` в окне, где запущен `pnpm start`
 
 ### Если что-то не работает
 
 | Сообщение или симптом | Что сделать |
 |---|---|
-| `bad option: --env-file-if-exists` | Node.js старше 22.9 — обновите (шаг 1) |
+| `bad option: --env-file-if-exists` | Node.js старше 22.9 — обновите (пункт 1 в разделе своей системы) |
 | «Ollama не отвечает на http://localhost:11434» | запустите Ollama: Windows/macOS — откройте приложение; Linux — `sudo systemctl start ollama` или `ollama serve` |
 | «Модель qwen3:8b не скачана» | `ollama pull qwen3:8b` |
 | «Не задан адрес API организаторов» | впишите `CQA_DATASET_API_URL` в `.env` и перезапустите `pnpm start` |
