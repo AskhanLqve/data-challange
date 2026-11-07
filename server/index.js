@@ -255,7 +255,8 @@ route('GET', '/api/analytics', ({ q }) => {
 function accuracyReports() {
   const dir = path.resolve('eval', 'reports');
   const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith('.json')).sort().reverse() : [];
-  return files.map((f) => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'))).filter((r) => r.run);
+  // эксперименты (отменённые изменения) не выдаются за текущую точность
+  return files.map((f) => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'))).filter((r) => r.run && !r.experiment);
 }
 // Сравнение моделей: последний полный замер (наибольший набор) каждой модели.
 route('GET', '/api/accuracy/models', () => {

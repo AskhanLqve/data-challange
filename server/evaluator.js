@@ -7,8 +7,9 @@ import { ruleFor } from './rules.js';
 
 const RUNS = Math.max(1, Number(process.env.CQA_RUNS || 1)); // >1 — голосование нескольких прогонов
 // Перепроверка: критерии с поводом для сомнения оцениваются ещё N раз (другой seed), ответ — большинством.
-// Только режим per-criterion: дешевле, чем CQA_RUNS=3 для всех критериев.
-export const RECHECK = Math.max(0, Number(process.env.CQA_RECHECK ?? 2));
+// Только режим per-criterion. По умолчанию выключена: на 26 диалогах изменила 4 ответа из 14 перепроверенных,
+// прироста точности не показала, а оценка шла на ~45% дольше. Включение: CQA_RECHECK=2.
+export const RECHECK = Math.max(0, Number(process.env.CQA_RECHECK ?? 0));
 // single — все критерии одним вызовом (сильные облачные модели, дешевле);
 // per-criterion — отдельный короткий вызов на каждый критерий (точнее для небольших локальных моделей).
 export const MODE = process.env.CQA_MODE || (PROVIDER === 'ollama' ? 'per-criterion' : 'single');

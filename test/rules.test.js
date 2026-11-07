@@ -43,14 +43,6 @@ test('цитаты: приставка транскрипта убирается
   assert.deepEqual(doubtsFor(crit, { answer: 'no', source: 'rule' }, c), [], 'ответ правила надёжен');
 });
 
-test('идентификация: системное подтверждение личности передаётся модели фактом', () => {
-  const ident = { id: 'c03', export_id: 'identification', na_allowed: true };
-  const ok = ruleFor({ ...conv('RU', ['operator', 'Подтвердите личность'], ['system', 'Личность клиента подтверждена.'], ['operator', 'Вижу ограничение']), channel: 'agent chat' }, ident);
-  assert.match(ok.note, /подтверждена системным сообщением #2/);
-  assert.match(ruleFor({ ...conv('EN', ['operator', 'I see a restriction']), channel: 'agent chat' }, ident).note, /нет/);
-  assert.equal(ruleFor({ ...conv('RU', ['operator', 'Да']), channel: 'voice call' }, ident), null);
-});
-
 test('контакт: английское «I am Name»', () => {
   assert.equal(ruleFor(conv('EN', ['operator', 'Hi, I am Tyler. I can see a restriction.']), contact).answer, 'yes');
 });

@@ -15,7 +15,7 @@ const freePort = () => new Promise((resolve) => { const s = net.createServer().l
 async function startServer() {
   const port = await freePort();
   proc = spawn(process.execPath, ['server/index.js'], {
-    env: { ...process.env, PORT: String(port), CQA_PROVIDER: 'stub', CQA_STORAGE_DIR: storage, CQA_MODE: 'single', CQA_RUNS: '1' },
+    env: { ...process.env, PORT: String(port), CQA_PROVIDER: 'stub', CQA_STORAGE_DIR: storage, CQA_MODE: 'single', CQA_RUNS: '1', CQA_RECHECK: '2' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   base = `http://localhost:${port}`;

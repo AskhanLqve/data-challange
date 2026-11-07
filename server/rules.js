@@ -65,22 +65,9 @@ function closure(conv, c) {
   return { note: `Проверено кодом: в последней реплике оператора #${lastOp.idx} прощания нет. Значит, ответ «Нет» или N/A (если клиент пропал/чат оборвался раньше, чем оператор мог завершить).` };
 }
 
-const VERIFIED = /личность клиента подтверждена|жеке басы расталды|identity verified/i;
-
-function identification(conv) {
-  if (conv.channel === 'voice call') return null; // в звонках системных отметок нет — решает модель
-  const t = conv.transcript;
-  const v = t.find((m) => m.speaker === 'system' && VERIFIED.test(m.text));
-  if (v) {
-    const before = t.slice(0, v.idx - 1).filter((m) => m.speaker === 'operator');
-    return {
-      note: `Проверено кодом: личность подтверждена системным сообщением #${v.idx}. Ответ «Да», если оператор не раскрыл данные о счёте клиента раньше реплики #${v.idx}; иначе «Нет». Реплики оператора до подтверждения: ${before.map((m) => '#' + m.idx).join(', ') || 'нет'}.`,
-    };
-  }
-  return { note: 'Проверено кодом: системного сообщения о подтверждении личности в диалоге нет.' };
-}
-
-const RULES = { contact, closure, identification };
+// Подсказка для «Идентификации» убрана: на замере 26 диалогов она снизила точность критерия с 69% до 50%
+// (модель ставила «Нет» вместо N/A, когда запрос не требовал проверки).
+const RULES = { contact, closure };
 
 export function ruleFor(conv, c) {
   const fn = RULES[c.export_id];
