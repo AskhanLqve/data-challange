@@ -100,7 +100,7 @@
       try { open = (await this.req('GET', '/api/appeals?status=open')).length; } catch { /* ignore */ }
       const hlth = this.state.health;
       this.top.replaceChildren(
-        h('a', { class: 'brand', href: this.getAttribute('home-url') || 'index.html', title: 'На главную' }, h('span', { class: 'mark' }, 'QA'), 'CQA', h('small', {}, 'Контроль качества диалогов')),
+        h('a', { class: 'brand', href: this.getAttribute('home-url') || 'index.html', title: 'На главную' }, h('span', { class: 'mark', html: '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M8 16.5l5 5L24 10.5" stroke="#fff" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>' }), 'CQA', h('small', {}, 'Контроль качества диалогов')),
         h('nav', {},
           h('a', { href: '#/', class: ['', 'c'].includes(sect) ? 'active' : '' }, 'Диалоги'),
           h('a', { href: '#/appeals', class: sect === 'appeals' ? 'active' : '' }, 'Апелляции', open ? h('span', { class: 'count' }, open) : null),
@@ -222,7 +222,7 @@
               select('group', groups.map((g) => [g.group_id, `${g.group_id} (${g.count})`]), 'Все наборы'),
               select('lang', [['RU', 'RU'], ['KZ', 'KZ'], ['EN', 'EN']], 'Все языки'),
               select('channel', [['agent chat', 'Чаты'], ['voice call', 'Звонки']], 'Все каналы'),
-              h('span', { class: 'muted small' }, `${filtered.length} из ${convs.length}`, avg != null ? ` · средний балл ${fmt(avg)}` : ''),
+              h('span', { class: 'muted small' }, `${filtered.length} из ${convs.length}`, avg != null ? `, средний итог ${fmt(avg)}` : ''),
               h('div', { class: 'spacer' }),
               h('button', { class: 'btn', onclick: () => sel.size ? runBatch([...sel], false) : this.toast('Отметьте диалоги галочками', true) }, `Оценить выбранные (${sel.size})`),
               h('button', { class: 'btn primary', onclick: () => runBatch(filtered.map((c) => c.conversation_id), true), title: 'Пропустит диалоги, уже оценённые текущей версией чек-листа' }, `Оценить все показанные — «${cl?.name || ''} v${cl?.version || ''}»`)),
@@ -320,7 +320,7 @@
 
       right.append(h('div', { class: 'panel' },
         h('div', { class: 'row' },
-          h('a', { href: '#/', class: 'btn sm' }, '← К списку'),
+          h('a', { href: '#/', class: 'btn sm' }, 'К списку'),
           h('h1', { style: { margin: 0 } }, conv.conversation_id),
           h('span', { class: 'tag blue' }, conv.language), h('span', { class: 'tag' }, conv.channel === 'voice call' ? '📞 звонок' : '💬 чат'),
           h('span', { class: 'muted small' }, conv.group_id),
@@ -363,7 +363,7 @@
               h('div', { class: 'bar' }, h('div', { style: { width: (s.percent ?? 0) + '%' } })),
               h('span', { class: 'small', style: { textAlign: 'right' } }, s.points == null ? 'N/A' : `${fmt(s.points)} / ${fmt(s.max)}`)))))),
         ev.summary ? h('p', { class: 'muted', style: { marginBottom: 0 } }, ev.summary) : null,
-        h('div', { class: 'small muted', style: { marginTop: '6px' } }, `${cl.name} v${ev.checklist_version} · ${ev.provider}/${ev.model}${ev.effort ? ' · effort ' + ev.effort : ''}${ev.mode === 'per-criterion' ? ' · по критериям' : ''}${ev.runs > 1 ? ` · ${ev.runs} прогона` : ''} · ${Math.round(ev.duration_ms / 1000)} с · $${fmt(ev.cost_usd, 4)} · ${fmtDate(ev.created_at)}`)));
+        h('div', { class: 'small muted', style: { marginTop: '6px' } }, `${cl.name} v${ev.checklist_version}, ${ev.provider}/${ev.model}${ev.effort ? ', effort ' + ev.effort : ''}${ev.mode === 'per-criterion' ? ', по критериям' : ''}${ev.runs > 1 ? `, ${ev.runs} прогона` : ''}, ${Math.round(ev.duration_ms / 1000)} с, $${fmt(ev.cost_usd, 4)}, ${fmtDate(ev.created_at)}`)));
 
       const appealsByCrit = new Map();
       for (const a of ev.appeals || []) appealsByCrit.set(a.criterion_id, [...(appealsByCrit.get(a.criterion_id) || []), a]);
@@ -373,7 +373,7 @@
         if (c.section !== currentSection) {
           currentSection = c.section;
           const sec = cl.sections.find((s) => s.id === c.section);
-          if (sec) root.append(h('h3', { class: 'muted', style: { marginTop: '18px' } }, sec.name.toUpperCase()));
+          if (sec) root.append(h('h3', { class: 'muted', style: { marginTop: '18px' } }, sec.name));
         }
         const r = ev.criteria.find((x) => x.criterion_id === c.id);
         if (!r) continue;
@@ -405,7 +405,7 @@
             ai.answer !== fa ? h('div', { class: 'small muted' }, `Исходная оценка ИИ: ${answerLabel(c, ai.answer)}`) : null) : null,
           appeals.map((a) => h('div', { class: 'review', style: { background: 'var(--accent-soft)' } },
             h('b', {}, a.status === 'open' ? '⏳ Апелляция ожидает решения' : '✓ Апелляция рассмотрена'), ` · ${a.author}, ${fmtDate(a.created_at)}: `, h('i', {}, a.comment),
-            a.status === 'open' ? h('div', {}, h('a', { href: `#/appeals/${a.id}` }, 'Открыть у проверяющего →')) : null)),
+            a.status === 'open' ? h('div', {}, h('a', { href: `#/appeals/${a.id}` }, 'Открыть у проверяющего')) : null)),
         );
         if (!openAppeal) {
           const formHolder = h('div');
@@ -516,7 +516,7 @@
       }
 
       view.append(h('div', { class: 'stack' },
-        h('div', { class: 'row' }, h('a', { class: 'btn sm', href: '#/appeals' }, '← Все апелляции'),
+        h('div', { class: 'row' }, h('a', { class: 'btn sm', href: '#/appeals' }, 'Все апелляции'),
           h('h1', { style: { margin: 0 } }, `Апелляция: ${ap.conversation_id} · ${c.code || ''} ${c.name}`),
           h('div', { class: 'spacer' }), h('a', { class: 'btn', href: `#/c/${encodeURIComponent(ap.conversation_id)}?ev=${ev.id}` }, 'Открыть карточку диалога')),
         h('div', { class: 'appeal' },
@@ -606,7 +606,7 @@
           h('button', { class: 'btn primary', onclick: save }, 'Сохранить новую версию'),
           h('button', { class: 'btn', onclick: () => this.render() }, 'Отменить изменения'),
           h('div', { class: 'spacer' }),
-          h('button', { class: 'btn', onclick: () => { this.state.checklistId = cur.id; localStorage.setItem('cqa.checklist', cur.id); this.go('#/'); this.toast(`Выбран «${cur.name}». Нажмите «Оценить все показанные», чтобы применить чек-лист.`); } }, 'Применить к диалогам →'),
+          h('button', { class: 'btn', onclick: () => { this.state.checklistId = cur.id; localStorage.setItem('cqa.checklist', cur.id); this.go('#/'); this.toast(`Выбран «${cur.name}». Нажмите «Оценить все показанные», чтобы применить чек-лист.`); } }, 'Применить к диалогам'),
           h('button', { class: 'btn danger', onclick: () => this.guard(async () => { if (!this._confirmReset) { this._confirmReset = true; this.toast('Нажмите ещё раз, чтобы сбросить к исходному чек-листу из PDF'); setTimeout(() => { this._confirmReset = false; }, 4000); return; } this._confirmReset = false; await this.req('POST', `/api/checklists/${cur.id}/reset-default`); this.toast('Сброшено к исходному'); this.render(); }) }, 'Сбросить к исходному')));
 
       drawSections();

@@ -1,51 +1,50 @@
 /* Все стили ограничены тегом cqa-app — компонент можно встроить в Dynamics 365 без конфликтов. */
 cqa-app [hidden] { display: none !important; }
 cqa-app {
-  /* Палитра в стиле Freedom Broker: зелёный + белый, строгий «банковский» вид */
-  --brand: #0b9d58; --brand-dark: #087a45; --brand-deep: #0e2a1e; --brand-soft: #e6f6ed;
-  --bg: #f3f5f4; --panel: #fff; --ink: #14201a; --muted: #66736c; --line: #e1e7e3;
-  --accent: var(--brand); --accent-soft: var(--brand-soft); --ok: #12804a; --ok-soft: #e3f4ea; --bad: #d1343b; --bad-soft: #fdeaea;
-  --na: #6f7a74; --na-soft: #eef1ef; --warn: #a06a00; --warn-soft: #fff4d9; --hl: #fff6c2;
-  --client: #f1f5f3; --operator: #e8f6ee; --bot: #f4f2fb; --system: #f2f3f3;
-  --radius: 14px; --shadow: 0 1px 2px rgba(14,42,30,.05), 0 4px 14px rgba(14,42,30,.06);
-  display: block; font: 14px/1.5 "Inter", -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  color: var(--ink); background: var(--bg); min-height: 100vh;
+  /* «Протокол проверки»: бумага, зелёные чернила, маркер на доказательствах. 4 размера шрифта на экран, rem. */
+  --brand: #087a43; --brand-dark: #066536; --brand-deep: #12261c; --brand-soft: #ddf2e5;
+  --bg: #fafbf9; --panel: #fff; --ink: #12261c; --muted: #4b5d53; --line: #d6ded9;
+  --accent: var(--brand); --accent-soft: var(--brand-soft); --ok: #087a43; --ok-soft: #ddf2e5; --bad: #b8322a; --bad-soft: #fbe9e7;
+  --na: #5f6f66; --na-soft: #edf1ee; --warn: #8a5a00; --warn-soft: #fdf3dc; --hl: #ddf2e5;
+  --client: #fff; --operator: #f3f8f5; --bot: #f7f7fa; --system: transparent;
+  --radius: 0.625rem; --shadow: none;
+  --s-title: 1.5rem; --s-body: 0.9375rem; --s-meta: 0.8125rem; --s-big: 2.5rem;
+  display: block; font: 400 var(--s-body)/1.5 "Golos Text", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-variant-numeric: tabular-nums; color: var(--ink); background: var(--bg); min-height: 100vh;
 }
 @media (prefers-color-scheme: dark) {
   cqa-app {
-    --brand: #2fc47c; --brand-dark: #23a466; --brand-deep: #08150f; --brand-soft: #123524;
-    --bg: #0c1310; --panel: #131d18; --ink: #e5ece8; --muted: #94a39b; --line: #24332b;
-    --ok: #3fcf86; --ok-soft: #12301f; --bad: #ff6b6b; --bad-soft: #3a1a1d;
-    --na: #94a39b; --na-soft: #1f2a25; --warn: #e3b341; --warn-soft: #33290f; --hl: #4a4114;
-    --client: #17221d; --operator: #13301f; --bot: #221d33; --system: #1a221e;
+    --brand: #4cc488; --brand-dark: #3aa872; --brand-deep: #e4ebe6; --brand-soft: #1d3a2a;
+    --bg: #0f1713; --panel: #15201a; --ink: #e4ebe6; --muted: #9fb0a6; --line: #2a3a31;
+    --ok: #4cc488; --ok-soft: #1d3a2a; --bad: #ff8a80; --bad-soft: #3a1f1c;
+    --na: #9fb0a6; --na-soft: #1f2a24; --warn: #e3b341; --warn-soft: #33290f; --hl: #1d3a2a;
+    --client: #15201a; --operator: #18281f; --bot: #1a1d24; --system: transparent;
   }
 }
 cqa-app * { box-sizing: border-box; }
 cqa-app button, cqa-app input, cqa-app select, cqa-app textarea { font: inherit; color: inherit; }
-cqa-app .topbar { display: flex; align-items: center; gap: 18px; padding: 10px 24px; background: var(--brand-deep); color: #fff; border-bottom: 3px solid var(--brand); position: sticky; top: 0; z-index: 20; flex-wrap: wrap; }
-cqa-app .brand { font-weight: 800; letter-spacing: .3px; display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; }
-cqa-app .brand .mark { width: 30px; height: 30px; border-radius: 9px; background: var(--brand); display: grid; place-items: center; font-size: 13px; }
-cqa-app .brand small { color: rgba(255,255,255,.6); font-weight: 500; margin-left: 6px; }
+cqa-app .topbar { display: flex; align-items: center; gap: 18px; padding: 10px 24px; background: var(--panel); color: var(--ink); border-bottom: 1px solid var(--line); box-shadow: inset 0 -2px 0 var(--brand); position: sticky; top: 0; z-index: 20; flex-wrap: wrap; }
+cqa-app .brand { font-weight: 700; display: flex; align-items: center; gap: 0.6rem; color: var(--ink); text-decoration: none; }
+cqa-app .brand .mark { width: 1.6rem; height: 1.6rem; border-radius: 0.45rem; background: #087a43; display: grid; place-items: center; }
+cqa-app .brand .mark svg { width: 1rem; height: 1rem; }
+cqa-app .brand small { color: var(--muted); font-weight: 500; margin-left: 6px; }
 cqa-app nav { display: flex; gap: 4px; }
-cqa-app nav a { padding: 7px 14px; border-radius: 10px; color: rgba(255,255,255,.75); text-decoration: none; font-weight: 500; }
-cqa-app nav a:hover { color: #fff; }
-cqa-app nav a.active { background: var(--brand); color: #fff; }
+cqa-app nav a { padding: 0.4rem 0.8rem; border-radius: 0.5rem; color: var(--muted); text-decoration: none; font-weight: 500; }
+cqa-app nav a:hover { color: var(--ink); }
+cqa-app nav a.active { background: var(--brand-soft); color: var(--ink); font-weight: 600; }
 cqa-app nav a .count { background: var(--bad); color: #fff; border-radius: 9px; padding: 0 6px; font-size: 11px; margin-left: 4px; }
 cqa-app .spacer { flex: 1; }
-cqa-app .topbar label.row { color: rgba(255,255,255,.7) !important; }
-cqa-app .topbar select { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.2); color: #fff; }
-cqa-app .topbar select option { color: #14201a; }
-cqa-app .model-badge { font-size: 12px; color: rgba(255,255,255,.8); border: 1px solid rgba(255,255,255,.25); border-radius: 20px; padding: 3px 10px; }
-cqa-app .model-badge.off { color: #ffb3b3; border-color: #ff8a8a; }
+cqa-app .model-badge { font-size: var(--s-meta); color: var(--muted); border: 1px solid var(--line); border-radius: 20px; padding: 3px 10px; }
+cqa-app .model-badge.off { color: var(--bad); border-color: var(--bad); }
 cqa-app main { padding: 18px 20px 60px; max-width: 1500px; margin: 0 auto; }
-cqa-app h1 { font-size: 21px; font-weight: 750; letter-spacing: -.2px; margin: 0 0 14px; }
-cqa-app h2 { font-size: 16px; margin: 0 0 10px; }
-cqa-app h3 { font-size: 14px; margin: 0 0 6px; }
+cqa-app h1 { font-size: var(--s-title); font-weight: 700; letter-spacing: -0.01em; margin: 0 0 14px; }
+cqa-app h2 { font-size: var(--s-body); font-weight: 700; margin: 0 0 10px; }
+cqa-app h3 { font-size: var(--s-body); margin: 0 0 6px; }
 cqa-app .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px 16px; }
 cqa-app .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 cqa-app .stack > * + * { margin-top: 12px; }
 cqa-app .muted { color: var(--muted); }
-cqa-app .small { font-size: 12px; }
+cqa-app .small { font-size: var(--s-meta); }
 cqa-app a.btn { text-decoration: none; display: inline-block; }
 cqa-app .btn { border: 1px solid var(--line); background: var(--panel); padding: 7px 14px; border-radius: 10px; cursor: pointer; font-weight: 500; white-space: nowrap; }
 cqa-app .btn:hover { border-color: var(--accent); }
@@ -72,7 +71,7 @@ cqa-app .tag.na { background: var(--na-soft); color: var(--na); }
 cqa-app .tag.warn { background: var(--warn-soft); color: var(--warn); }
 cqa-app .tag.blue { background: var(--accent-soft); color: var(--accent); }
 cqa-app .score { font-weight: 700; font-variant-numeric: tabular-nums; }
-cqa-app .score.big { font-size: 40px; line-height: 1; color: var(--brand-dark); letter-spacing: -1px; }
+cqa-app .score.big { font-size: var(--s-big); line-height: 1; color: var(--ink); letter-spacing: -0.02em; }
 cqa-app .toast { position: fixed; right: 20px; bottom: 20px; background: var(--ink); color: var(--bg); padding: 10px 14px; border-radius: 8px; z-index: 100; max-width: 460px; white-space: pre-wrap; box-shadow: var(--shadow); }
 cqa-app .toast.err { background: var(--bad); color: #fff; }
 cqa-app .progress { height: 6px; background: var(--line); border-radius: 4px; overflow: hidden; min-width: 160px; }
@@ -87,7 +86,7 @@ cqa-app .audio-bar audio { width: 100%; }
 cqa-app .msg { display: grid; grid-template-columns: 34px 1fr; gap: 8px; padding: 7px 9px; border-radius: 8px; margin-bottom: 4px; border: 2px solid transparent; scroll-margin: 90px; }
 cqa-app .msg .num { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; padding-top: 1px; }
 cqa-app .msg .meta { font-size: 11px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
-cqa-app .msg .role { font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+cqa-app .msg .role { font-weight: 600; }
 cqa-app .msg .text { white-space: pre-wrap; word-break: break-word; }
 cqa-app .msg.client { background: var(--client); }
 cqa-app .msg.operator { background: var(--operator); }
@@ -99,7 +98,7 @@ cqa-app .msg .play { border: 0; background: none; cursor: pointer; color: var(--
 cqa-app .totals { display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: center; }
 cqa-app .sections .sec { display: grid; grid-template-columns: 1fr 110px 120px; gap: 8px; align-items: center; font-size: 13px; }
 cqa-app .bar { height: 7px; background: var(--line); border-radius: 4px; overflow: hidden; }
-cqa-app .bar > div { height: 100%; background: linear-gradient(90deg, var(--brand-dark), var(--brand)); }
+cqa-app .bar > div { height: 100%; background: var(--brand); }
 cqa-app .crit { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; background: var(--panel); }
 cqa-app .crit.flagged { border-color: var(--bad); background: var(--bad-soft); }
 cqa-app .crit-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
@@ -133,9 +132,24 @@ cqa-app .kv dt { color: var(--muted); }
 cqa-app .kv dd { margin: 0; }
 
 /* Акценты бренда */
-cqa-app th { text-transform: uppercase; letter-spacing: .4px; font-size: 11px; }
+
 cqa-app .panel { border-color: var(--line); }
-cqa-app .crit { box-shadow: var(--shadow); }
+
 cqa-app .totals .score.big + .small { margin-top: 4px; }
 cqa-app input:focus, cqa-app select:focus, cqa-app textarea:focus { outline: 2px solid var(--brand-soft); border-color: var(--brand); }
 cqa-app a { color: var(--brand-dark); }
+
+/* «Протокол»: доказательства — как маркер, системные события — тихие, тег-ответы без капса */
+cqa-app th { font-size: var(--s-meta); font-weight: 600; color: var(--muted); }
+cqa-app .tag { font-size: var(--s-meta); font-weight: 600; }
+cqa-app .ev { background: var(--hl); border-color: transparent; }
+cqa-app .ev:hover { border-color: var(--brand); }
+cqa-app .msg { border-left: 2px solid transparent; border-radius: 0.375rem; }
+cqa-app .msg.operator { border-left-color: var(--brand); }
+cqa-app .msg.system { color: var(--muted); }
+cqa-app .msg.flash { background: var(--hl); border-color: var(--brand); }
+cqa-app .crit.flagged { border-color: var(--bad); background: var(--bad-soft); }
+cqa-app .panel { box-shadow: none; }
+cqa-app .score { font-variant-numeric: tabular-nums; }
+cqa-app :focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { cqa-app * { transition: none !important; scroll-behavior: auto !important; } }
