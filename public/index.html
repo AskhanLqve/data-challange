@@ -45,6 +45,8 @@
   h1, h2 { text-wrap: balance; font-weight: 650; }
   .two-tone .dim { color: var(--ink-3); }
   .two-tone .blue { color: var(--blue); }
+  /* акцент заголовка первого экрана — переливом голубой → зелёный, как в стилистике Freedom */
+  .hero h1 .blue { background: linear-gradient(90deg, #4f8ff7 0%, #00b323 55%, #00e183 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .label { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--blue); }
   .muted { color: var(--ink-2); }
 
@@ -83,8 +85,7 @@
 
   /* «устройство»: карточка оценки с всплывающими чипами */
   .device-wrap { position: relative; display: grid; place-items: center; min-height: 32rem; }
-  #wave3d { position: absolute; right: 0; top: 0; width: 50%; height: 100%; z-index: 0; pointer-events: none;
-    -webkit-mask-image: radial-gradient(closest-side, #000 60%, transparent); mask-image: radial-gradient(closest-side, #000 60%, transparent); }
+  #wave3d { position: absolute; right: 0; top: 0; width: 50%; height: 100%; z-index: 0; pointer-events: none; }
   @media (max-width: 900px) { #wave3d { display: none; } }
   .device-wrap > .device { position: relative; z-index: 1; }
   .device-wrap > .chip { z-index: 2; }
@@ -447,8 +448,9 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
 <script>
-  // 3D-сцена за карточкой: две дорожки разговора (клиент и оператор) из столбиков, как волна записи звонка.
-  // Без WebGL или библиотеки — просто не рисуется; при «уменьшить движение» — один неподвижный кадр.
+  // 3D-сцена за карточкой: глянцевые объекты продукта (галочка, чат, щит, звезда, звонок, звук)
+  // парят вокруг карточки оценки и слегка поворачиваются за курсором. Свои модели, без чужих логотипов.
+  // Без WebGL или библиотеки — не рисуется; при «уменьшить движение» — один неподвижный кадр.
   window.addEventListener('load', function () {
     var canvas = document.getElementById('wave3d');
     if (!canvas || !window.THREE) return;
@@ -456,42 +458,58 @@
     try { renderer = new T.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true }); } catch (e) { return; }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     var scene = new T.Scene();
-    var camera = new T.PerspectiveCamera(35, 1, 0.1, 100);
-    camera.position.set(0, 5.5, 14); camera.lookAt(0, -0.6, 0);
-    scene.add(new T.AmbientLight(0xffffff, 0.7));
-    var sun = new T.DirectionalLight(0xffffff, 0.8); sun.position.set(4, 10, 6); scene.add(sun);
-    var N = 48, lanes = [{ z: -1.4, color: 0x0c5a2a, phase: 0 }, { z: 1.4, color: 0x00b323, phase: 1.7 }];
-    var geo = new T.BoxGeometry(0.26, 1, 0.9), dummy = new T.Object3D(), meshes = [];
-    lanes.forEach(function (l) {
-      var m = new T.InstancedMesh(geo, new T.MeshStandardMaterial({ color: l.color, roughness: 0.45, metalness: 0.1 }), N);
-      m.userData = l; scene.add(m); meshes.push(m);
-    });
-    // подсвеченный «фрагмент-доказательство» — полупрозрачный блок поперёк дорожек
-    var hl = new T.Mesh(new T.BoxGeometry(3, 0.06, 5), new T.MeshBasicMaterial({ color: 0xffa700, transparent: true, opacity: 0.35 }));
-    hl.position.y = -2.2; scene.add(hl);
+    var camera = new T.PerspectiveCamera(30, 1, 0.1, 100);
+    camera.position.set(0, 0, 19);
+    // свет: белый ключевой, голубой контровой и зелёный снизу — перелив зелёный → голубой на глянце
+    scene.add(new T.HemisphereLight(0x9ff3ff, 0x0b7a2a, 0.9));
+    var key = new T.DirectionalLight(0xffffff, 1.1); key.position.set(-4, 6, 8); scene.add(key);
+    var rim = new T.PointLight(0x4fb6ff, 1.4, 40); rim.position.set(-8, 2, 4); scene.add(rim);
+    var fill = new T.PointLight(0x00e183, 1.2, 40); fill.position.set(8, -4, 6); scene.add(fill);
+    var mat = function (c) { return new T.MeshPhysicalMaterial({ color: c, metalness: 0.15, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.08 }); };
+    var extrude = function (shape, depth) {
+      var g = new T.ExtrudeGeometry(shape, { depth: depth || 0.45, bevelEnabled: true, bevelThickness: 0.14, bevelSize: 0.1, bevelSegments: 6, curveSegments: 24 });
+      g.center(); return g;
+    };
+    function check() { var s = new T.Shape(); s.moveTo(-1, 0.1); s.lineTo(-0.35, -0.6); s.lineTo(1.05, 0.85); s.lineTo(0.75, 1.15); s.lineTo(-0.35, 0); s.lineTo(-0.7, 0.4); s.closePath(); return extrude(s); }
+    function bubble() { var s = new T.Shape(), r = 0.35, w = 1.1, h = 0.8;
+      s.moveTo(-w + r, -h); s.lineTo(-0.2, -h); s.lineTo(-0.55, -h - 0.45); s.lineTo(-0.45, -h); s.lineTo(w - r, -h);
+      s.quadraticCurveTo(w, -h, w, -h + r); s.lineTo(w, h - r); s.quadraticCurveTo(w, h, w - r, h); s.lineTo(-w + r, h);
+      s.quadraticCurveTo(-w, h, -w, h - r); s.lineTo(-w, -h + r); s.quadraticCurveTo(-w, -h, -w + r, -h); return extrude(s); }
+    function shield() { var s = new T.Shape(); s.moveTo(0, 1.1); s.quadraticCurveTo(0.6, 0.9, 1, 0.9); s.quadraticCurveTo(1.05, -0.4, 0, -1.15);
+      s.quadraticCurveTo(-1.05, -0.4, -1, 0.9); s.quadraticCurveTo(-0.6, 0.9, 0, 1.1); return extrude(s); }
+    function star() { var s = new T.Shape(); for (var i = 0; i < 10; i++) { var a = Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 0.48 : 1.1; var x = Math.cos(a) * r, y = Math.sin(a) * r; if (i) s.lineTo(x, y); else s.moveTo(x, y); } s.closePath(); return extrude(s); }
+    function play() { var s = new T.Shape(); s.moveTo(-0.6, -0.85); s.lineTo(0.95, 0); s.lineTo(-0.6, 0.85); s.closePath(); return extrude(s, 0.5); }
+    function bars() { var grp = new T.Group(); [0.7, 1.4, 1, 1.7, 0.9].forEach(function (h, i) {
+      var m = new T.Mesh(new T.BoxGeometry(0.26, h, 0.32), mat(i % 2 ? 0x00e183 : 0x00b323)); m.position.x = (i - 2) * 0.4; grp.add(m); }); return grp; }
+    var items = [
+      { obj: new T.Mesh(check(), mat(0x00b323)), p: [-4.25, 2.5, 0], s: 0.72 },
+      { obj: new T.Mesh(bubble(), mat(0x13ad64)), p: [3.4, 3.0, -1], s: 0.7 },
+      { obj: new T.Mesh(shield(), mat(0x00c853)), p: [-4.4, -0.4, -0.5], s: 0.62 },
+      { obj: new T.Mesh(star(), mat(0x00e183)), p: [3.6, -0.2, 0], s: 0.62 },
+      { obj: new T.Mesh(play(), mat(0x00b323)), p: [-4.0, -3.3, 0.5], s: 0.62 },
+      { obj: bars(), p: [3.1, -3.3, 0.2], s: 0.75 }
+    ];
+    var root = new T.Group(); scene.add(root);
+    items.forEach(function (it, i) { it.obj.position.set(it.p[0], it.p[1], it.p[2]); it.obj.scale.setScalar(it.s); it.phase = i * 1.3; it.obj.rotation.set(0.25, -0.5 + i * 0.2, 0.05 * i); root.add(it.obj); });
+    var target = { x: 0, y: 0 };
+    if (matchMedia('(hover: hover) and (pointer: fine)').matches) window.addEventListener('pointermove', function (e) { target.x = (e.clientX / innerWidth - 0.5) * 0.5; target.y = (e.clientY / innerHeight - 0.5) * 0.3; });
     function frame(t) {
-      meshes.forEach(function (m) {
-        var l = m.userData;
-        for (var i = 0; i < N; i++) {
-          var x = (i - N / 2) * 0.42;
-          // реплики идут «пачками», как в разговоре: огибающая × мелкая волна
-          var env = Math.max(0, Math.sin(i * 0.19 + l.phase + t * 0.6)) ;
-          var h = 0.15 + env * (1.6 + 1.4 * Math.abs(Math.sin(i * 1.7 + t * 2.1 + l.phase)));
-          dummy.position.set(x, h / 2 - 2.2, l.z); dummy.scale.set(1, h, 1); dummy.updateMatrix(); m.setMatrixAt(i, dummy.matrix);
-        }
-        m.instanceMatrix.needsUpdate = true;
+      items.forEach(function (it) {
+        it.obj.position.y = it.p[1] + Math.sin(t * 0.9 + it.phase) * 0.22;
+        it.obj.rotation.y = -0.5 + Math.sin(t * 0.5 + it.phase) * 0.45;
+        it.obj.rotation.x = 0.25 + Math.cos(t * 0.6 + it.phase) * 0.12;
       });
-      hl.position.x = Math.sin(t * 0.35) * 6;
-      scene.rotation.y = -0.18 + Math.sin(t * 0.2) * 0.06;
+      root.rotation.y += (target.x - root.rotation.y) * 0.05;
+      root.rotation.x += (target.y - root.rotation.x) * 0.05;
       renderer.render(scene, camera);
     }
     function resize() {
       var w = canvas.clientWidth, h = canvas.clientHeight; if (!w || !h) return;
       renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
     }
-    resize(); window.addEventListener('resize', function () { resize(); if (still) frame(2); });
     var still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (still) { frame(2); return; }
+    resize(); window.addEventListener('resize', function () { resize(); if (still) frame(1); });
+    if (still) { frame(1); return; }
     var visible = true, start = performance.now();
     new IntersectionObserver(function (e) { visible = e[0].isIntersecting; }).observe(canvas);
     (function loop(now) { if (visible && !document.hidden) frame((now - start) / 1000); requestAnimationFrame(loop); })(start);
