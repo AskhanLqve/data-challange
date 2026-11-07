@@ -26,6 +26,7 @@
   const fmtDate = (s) => (s ? new Date(s).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' }) : '');
   const clock = (sec) => { if (sec == null) return ''; const s = Math.round(sec); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
   const ICONS = {
+    plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>',
     chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
     check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12l3 3 5-6"/></svg>',
     scale: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M7 21h10M5 7h14M5 7l-3 7a4 4 0 0 0 6 0zM19 7l-3 7a4 4 0 0 0 6 0z"/></svg>',
@@ -38,6 +39,16 @@
     warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>',
   };
   const LANG_NAME = { RU: 'Русский', KZ: 'Қазақша', EN: 'English' };
+  // CSV с колонками timestamp/time, speaker/role, text/message → строки «[время] роль: текст»
+  function csvToLines(text) {
+    const rows = text.split(/\r?\n/).filter(Boolean);
+    const sep = rows[0].includes(';') ? ';' : ',';
+    const split = (l) => { const out = []; let cur = '', q = false; for (const ch of l) { if (ch === '"') q = !q; else if (ch === sep && !q) { out.push(cur); cur = ''; } else cur += ch; } out.push(cur); return out.map((x) => x.trim()); };
+    const head = split(rows[0]).map((x) => x.toLowerCase());
+    const iT = head.findIndex((x) => /time|время/.test(x)), iS = head.findIndex((x) => /speaker|role|роль/.test(x)), iX = head.findIndex((x) => /text|message|реплика|текст/.test(x));
+    if (iS < 0 || iX < 0) return text;
+    return rows.slice(1).map((l) => { const c = split(l); return `${iT >= 0 && c[iT] ? '[' + c[iT] + '] ' : ''}${c[iS]}: ${c[iX]}`; }).join('\n');
+  }
   const LANG = { RU: 'RU', KZ: 'KZ', EN: 'EN' };
   const ROLE = { client: 'Клиент', operator: 'Оператор', bot: 'Бот', system: 'Система' };
   const TYPE = { binary: 'Да / Нет', scale: 'Шкала', flag: 'Флаг (без баллов)' };
@@ -63,7 +74,7 @@
   class CqaApp extends HTMLElement {
     connectedCallback() {
       this.api = (this.getAttribute('api-base') || window.CQA_API_BASE || '').replace(/\/$/, '');
-      this.state = { checklists: [], health: null, jobs: {}, selected: new Set(), filters: { q: '', lang: '', channel: '', group: (() => { try { return localStorage.getItem('cqa.group') || ''; } catch { return ''; } })() } };
+      this.state = { checklists: [], health: null, jobs: {}, selected: new Set(), filters: { q: '', lang: '', channel: '', assignee: '', group: (() => { try { return localStorage.getItem('cqa.group') || ''; } catch { return ''; } })() } };
       window.addEventListener('hashchange', () => this.render());
       this.init();
     }
@@ -116,6 +127,7 @@
       this.side.replaceChildren(
         h('a', { class: 'side-brand', href: this.getAttribute('home-url') || 'index.html', title: 'О проекте' }, 'CQA'),
         h('nav', { class: 'side-nav', 'aria-label': 'Разделы' },
+          item('#/new', sect === 'new', 'plus', 'Новая проверка'),
           item('#/', ['', 'c'].includes(sect), 'chat', 'Диалоги'),
           item('#/checklists', sect === 'checklists', 'check', 'Чек-листы'),
           item('#/appeals', sect === 'appeals', 'scale', 'Апелляции', open ? h('span', { class: 'count' }, open) : null),
@@ -139,6 +151,7 @@
         if (parts[0] === 'appeals') return this.viewAppeals(view, parts[1]);
         if (parts[0] === 'checklists') return this.viewChecklists(view, parts[1]);
         if (parts[0] === 'analytics') return this.viewAnalytics(view);
+        if (parts[0] === 'new') return this.viewSandbox(view, parts[1] || 'chat');
         return this.viewList(view);
       });
     }
@@ -147,7 +160,8 @@
     // Список диалогов
     // =====================================================================
     async viewList(view) {
-      const [convs, groups] = await Promise.all([this.req('GET', '/api/conversations'), this.req('GET', '/api/groups')]);
+      const [convs, groups, rv] = await Promise.all([this.req('GET', '/api/conversations'), this.req('GET', '/api/groups'), this.req('GET', '/api/reviewers').catch(() => ({ names: [] }))]);
+      const reviewerNames = rv.names;
       const f = this.state.filters;
       if (f.group && !groups.some((g) => g.group_id === f.group)) f.group = ''; // набора нет — показываем все
       const cl = this.checklist;
@@ -177,7 +191,8 @@
 
       const filtered = convs.filter((c) =>
         (!f.lang || c.language === f.lang) && (!f.channel || c.channel === f.channel) && (!f.group || c.group_id === f.group) &&
-        (!f.q || (c.conversation_id + ' ' + c.preview).toLowerCase().includes(f.q.toLowerCase())));
+        (!f.assignee || (f.assignee === '—' ? !c.assignee : c.assignee === f.assignee)) &&
+        (!f.q || (c.conversation_id + ' ' + (c.title || '') + ' ' + c.preview).toLowerCase().includes(f.q.toLowerCase())));
 
       const sel = this.state.selected;
       const jobBox = h('div');
@@ -195,7 +210,7 @@
         const box = h('input', { type: 'checkbox', checked: sel.has(c.conversation_id), onclick: (e) => { e.stopPropagation(); e.target.checked ? sel.add(c.conversation_id) : sel.delete(c.conversation_id); } });
         tbody.append(h('tr', { onclick: () => this.go(`#/c/${encodeURIComponent(c.conversation_id)}`) },
           h('td', { onclick: (e) => e.stopPropagation() }, box),
-          h('td', {}, h('b', {}, c.conversation_id), h('div', { class: 'small muted' }, c.group_id)),
+          h('td', {}, h('b', {}, c.conversation_id), h('div', { class: 'small muted' }, c.title || c.group_id)),
           h('td', {}, h('span', { class: 'tag blue' }, LANG[c.language] || c.language)),
           h('td', {}, c.channel === 'voice call' ? '📞 звонок' : '💬 чат', h('div', { class: 'small muted' }, `${c.messages} реплик`)),
           h('td', { class: 'small', style: { maxWidth: '420px' } }, c.preview),
@@ -204,12 +219,33 @@
             ev.original_total !== ev.total ? h('span', { class: 'small muted' }, ` (ИИ: ${fmt(ev.original_total)})`) : null,
             ev.gross ? h('div', {}, h('span', { class: 'tag no' }, 'грубая ошибка')) : null,
             h('div', { class: 'small muted' }, `${ev.checklist_name} v${ev.checklist_version}`)) : h('span', { class: 'muted small' }, 'не оценён')),
-          h('td', {}, ev ? h('span', { class: 'tag ' + (ev.status === 'appealed' ? 'warn' : ev.status === 'reviewed' ? 'yes' : '') }, { evaluated: 'оценён', appealed: 'апелляция', reviewed: 'пересмотрен' }[ev.status] || ev.status) : null)));
+          h('td', {}, ev ? h('span', { class: 'tag ' + (ev.status === 'appealed' ? 'warn' : ev.status === 'reviewed' ? 'yes' : '') }, { evaluated: 'оценён', appealed: 'апелляция', reviewed: 'пересмотрен', manual: 'ручная' }[ev.status] || ev.status) : null),
+          h('td', { onclick: (e) => e.stopPropagation() }, h('select', { class: 'assignee', 'aria-label': 'Проверяющий', onchange: (e) => this.guard(async () => { await this.req('POST', '/api/assign', { conversation_ids: [c.conversation_id], assignee: e.target.value || null }); c.assignee = e.target.value || null; }) },
+            h('option', { value: '' }, '—'), [...new Set([...reviewerNames, ...(c.assignee ? [c.assignee] : [])])].map((n) => h('option', { value: n, selected: c.assignee === n ? 'selected' : null }, n))))));
       }
 
       const select = (key, opts, label) => h('select', { onchange: (e) => { f[key] = e.target.value; if (key === 'group') { try { localStorage.setItem('cqa.group', f.group); } catch { /* ignore */ } } this.render(); } },
         h('option', { value: '' }, label), opts.map(([v, t]) => h('option', { value: v, selected: f[key] === v ? 'selected' : null }, t)));
       const search = h('input', { type: 'search', placeholder: 'Поиск по ID и тексту', value: f.q, oninput: (e) => { f.q = e.target.value; clearTimeout(this._t); this._t = setTimeout(() => { this.render().then(() => { const s = this.querySelector('input[type=search]'); s?.focus(); s?.setSelectionRange(s.value.length, s.value.length); }); }, 300); } });
+
+      // распределение между проверяющими
+      const namesInput = h('input', { type: 'text', value: reviewerNames.join(', '), placeholder: 'Айгерим, Иван, Дана', style: { minWidth: '18rem', flex: 1 } });
+      const distBox = h('div', { class: 'panel dist', hidden: true },
+        h('h3', {}, 'Распределить диалоги между проверяющими'),
+        h('p', { class: 'small muted', style: { margin: '0 0 0.6rem' } }, 'Поровну с учётом уже назначенных: следующий диалог получает тот, у кого меньше всего в работе. Отмеченные галочками — или все показанные, если ничего не отмечено.'),
+        h('div', { class: 'row' }, h('label', { class: 'field', style: { flex: 1 } }, 'Проверяющие (через запятую)', namesInput),
+          h('button', { class: 'btn primary', onclick: () => this.guard(async () => {
+            const names = namesInput.value.split(',').map((x) => x.trim()).filter(Boolean);
+            await this.req('PUT', '/api/reviewers', { names });
+            const ids = sel.size ? [...sel] : filtered.map((c) => c.conversation_id);
+            const r = await this.req('POST', '/api/assign/auto', { conversation_ids: ids, reviewers: names });
+            this.toast('Распределено: ' + Object.entries(r.plan).map(([n, k]) => `${n} — ${k}`).join(', '));
+            this.render();
+          }) }, 'Распределить поровну'),
+          h('button', { class: 'btn', onclick: () => this.guard(async () => {
+            const ids = sel.size ? [...sel] : filtered.map((c) => c.conversation_id);
+            await this.req('POST', '/api/assign', { conversation_ids: ids, assignee: null }); this.toast(`Снято назначение: ${ids.length}`); this.render();
+          }) }, 'Снять назначение')));
 
       const evaluated = filtered.filter((c) => c.last_evaluation);
       const avg = evaluated.length ? evaluated.reduce((s, c) => s + (c.last_evaluation.total || 0), 0) / evaluated.length : null;
@@ -248,13 +284,16 @@
               select('group', groups.map((g) => [g.group_id, `${g.group_id} (${g.count})`]), 'Все наборы'),
               select('lang', [['RU', 'RU'], ['KZ', 'KZ'], ['EN', 'EN']], 'Все языки'),
               select('channel', [['agent chat', 'Чаты'], ['voice call', 'Звонки']], 'Все каналы'),
+              select('assignee', [['—', 'Не назначены'], ...reviewerNames.map((n) => [n, n])], 'Все проверяющие'),
               h('span', { class: 'muted small' }, `${filtered.length} из ${convs.length}`, avg != null ? `, средний итог ${fmt(avg)}` : ''),
               h('div', { class: 'spacer' }),
+              h('button', { class: 'btn', onclick: () => { distBox.hidden = !distBox.hidden; } }, 'Распределить'),
               h('button', { class: 'btn', onclick: () => sel.size ? runBatch([...sel], false) : this.toast('Отметьте диалоги галочками', true) }, `Оценить выбранные (${sel.size})`),
               h('button', { class: 'btn primary', onclick: () => runBatch(filtered.map((c) => c.conversation_id), true), title: 'Пропустит диалоги, уже оценённые текущей версией чек-листа' }, `Оценить все показанные (${filtered.length})`)),
+            distBox,
             jobBox,
             filtered.length ? h('div', { class: 'table-wrap' }, h('table', {},
-              h('thead', {}, h('tr', {}, h('th', {}, allBox), h('th', {}, 'Диалог'), h('th', {}, 'Язык'), h('th', {}, 'Канал'), h('th', {}, 'Запрос клиента'), h('th', {}, 'Итог'), h('th', {}, 'Статус'))),
+              h('thead', {}, h('tr', {}, h('th', {}, allBox), h('th', {}, 'Диалог'), h('th', {}, 'Язык'), h('th', {}, 'Канал'), h('th', {}, 'Запрос клиента'), h('th', {}, 'Итог'), h('th', {}, 'Статус'), h('th', {}, 'Проверяющий'))),
               tbody)) : h('div', { class: 'empty' }, convs.length ? 'Ничего не найдено' : 'Диалогов пока нет. Загрузите набор из API (group_id = DEV) или файл.'))));
 
       // Показываем идущую оценку и после перезагрузки страницы — состояние берём с сервера.
@@ -477,7 +516,9 @@
         this.renderEvaluation(details, ev, conv, (idx) => select(idx), { noTotals: true });
       }
 
-      appendAll(view, head, media, h('div', { class: 'card-cols' }, trPanel, qPanel), ev ? h('h2', { class: 'section-title' }, 'Подробно по критериям') : null, details);
+      appendAll(view, head, media, h('div', { class: 'card-cols' }, trPanel, qPanel),
+        h('div', { class: 'card-cols', style: { marginTop: '1rem' } }, this.assistantPanel(conv, ev), this.whatIfPanel(conv, ev)),
+        ev ? h('h2', { class: 'section-title' }, 'Подробно по критериям') : null, details);
       requestAnimationFrame(draw);
       new ResizeObserver(() => draw()).observe(canvas);
       if (state.selected) setTimeout(() => select(state.selected), 60);
@@ -544,6 +585,266 @@
               tableToggle(a.by_language.map((l) => [LANG_NAME[l.key] || l.key, fmt(l.avg), l.count]), ['Язык', 'Средний итог', 'Диалогов'])))),
         h('div', { class: 'panel' }, h('h2', {}, 'Требуют внимания'), h('p', { class: 'small muted' }, 'Диалоги с самым низким итогом.'), weakest),
         tip);
+    }
+
+    // =====================================================================
+    // Новая проверка: свои диалоги — конструктор, файл/текст, аудио и микрофон
+    // =====================================================================
+    async viewSandbox(view, tab = 'chat') {
+      const asr = await this.req('GET', '/api/asr/status').catch(() => ({ available: false }));
+      const cl = this.checklist;
+      const tabs = [['chat', 'Конструктор чата'], ['file', 'Файл или текст'], ['audio', 'Аудио и микрофон']];
+      const body = h('div');
+      view.append(
+        h('div', { class: 'page-head' }, h('div', {}, h('h1', {}, 'Новая проверка'), h('div', { class: 'sub' }, 'Любой диалог, не только из API организаторов: соберите переписку, загрузите файл или запись звонка.'))),
+        h('div', { class: 'tabs', role: 'tablist' }, tabs.map(([id, label]) => h('a', { role: 'tab', href: `#/new/${id}`, class: 'tab' + (tab === id ? ' on' : ''), 'aria-selected': String(tab === id) }, label))),
+        body);
+
+      // общий финал: создать диалог → оценить → открыть карточку
+      const finish = async (payload, btn) => {
+        btn.disabled = true; const label = btn.textContent; btn.textContent = 'Создаю диалог…';
+        try {
+          const conv = await this.req('POST', '/api/sandbox/create', payload);
+          btn.textContent = 'Идёт оценка…';
+          const ev = await this.req('POST', '/api/evaluate', { conversation_id: conv.conversation_id, checklist_id: cl.id });
+          this.toast(`Готово: ${fmt(ev.final_score.total)} из 100`);
+          this.go(`#/c/${encodeURIComponent(conv.conversation_id)}?ev=${ev.id}`);
+        } catch (e) { this.toast(e.message, true); } finally { btn.disabled = false; btn.textContent = label; }
+      };
+      const meta = (defaults = {}) => {
+        const st = { title: defaults.title || '', language: defaults.language || 'RU', channel: defaults.channel || 'agent chat' };
+        const el = h('div', { class: 'row', style: { marginBottom: '0.75rem' } },
+          h('label', { class: 'field' }, 'Название', h('input', { type: 'text', value: st.title, placeholder: 'Например: вывод средств, жалоба', oninput: (e) => { st.title = e.target.value; } })),
+          h('label', { class: 'field' }, 'Язык', h('select', { onchange: (e) => { st.language = e.target.value; } }, ['RU', 'KZ', 'EN'].map((l) => h('option', { value: l, selected: st.language === l ? 'selected' : null }, LANG_NAME[l])))),
+          defaults.noChannel ? null : h('label', { class: 'field' }, 'Канал', h('select', { onchange: (e) => { st.channel = e.target.value; } }, [['agent chat', 'Чат'], ['voice call', 'Звонок']].map(([v, t]) => h('option', { value: v, selected: st.channel === v ? 'selected' : null }, t)))));
+        return { st, el };
+      };
+
+      if (tab === 'chat') {
+        const TEMPLATES = {
+          '': [],
+          'Хорошая консультация': [['client', 'Где посмотреть мой тариф?'], ['operator', 'Здравствуйте! Меня зовут Алина. Вы смотрите в приложении или в веб-версии?'], ['client', 'В веб-версии.'], ['operator', 'Откройте вкладку «Кабинет» — название тарифа указано под вашим ФИО.'], ['client', 'Нашла, спасибо.'], ['operator', 'Рада помочь! Если появятся вопросы — пишите. Хорошего дня!']],
+          'Раскрытие данных без идентификации': [['client', 'Почему у меня заблокирован вывод?'], ['operator', 'Здравствуйте, я Руслан. Вижу на вашем счёте ограничение на вывод из-за неполной анкеты.'], ['client', 'Я ведь не подтверждал, что это мой счёт.'], ['operator', 'Это не обязательно. До свидания.']],
+          'Предложение в обход компании': [['client', 'Посоветуйте, какие облигации купить?'], ['operator', 'Здравствуйте, я Кирилл. Переведите деньги мне на карту — я сам вложу с выгодой, без комиссии компании.'], ['client', 'Нет, спасибо.'], ['system', 'Оператор закрыл чат.']],
+          'Клиент ушёл до вопроса': [['client', 'Здравствуйте'], ['system', 'Эскалация на оператора.'], ['operator', 'Здравствуйте! Меня зовут Ирина. Чем могу помочь?'], ['system', 'Клиент покинул чат.']],
+          'Ожидание без предупреждения': [['client', 'Почему не пришли дивиденды по Apple?'], ['operator', 'Здравствуйте, меня зовут Нина. За какой период ожидали выплату?'], ['client', 'За прошлый квартал.'], ['operator', 'Выплата ещё не поступила от депозитария, ожидается до конца месяца.', 330], ['client', 'Почему так долго не отвечали?'], ['operator', 'Ожидайте. Хорошего дня!']],
+        };
+        const { st, el: metaEl } = meta();
+        let msgs = [];
+        let role = 'operator';
+        const list = h('div', { class: 'composer-list' });
+        const draw = () => {
+          list.replaceChildren(...(msgs.length ? msgs.map((m, i) => h('div', { class: `bubble ${m.speaker}` },
+            h('div', { class: 'bubble-meta' },
+              h('select', { 'aria-label': 'Роль', onchange: (e) => { m.speaker = e.target.value; draw(); } }, Object.entries(ROLE).map(([v, t]) => h('option', { value: v, selected: m.speaker === v ? 'selected' : null }, t))),
+              h('input', { type: 'number', min: 0, step: 5, value: m.offset_sec, title: 'Секунда от начала', 'aria-label': 'Время, с', style: { width: '5.5rem' }, oninput: (e) => { m.offset_sec = Number(e.target.value) || 0; } }),
+              h('span', { class: 'small muted' }, clock(m.offset_sec)),
+              h('button', { class: 'btn sm danger', type: 'button', 'aria-label': 'Удалить реплику', onclick: () => { msgs.splice(i, 1); draw(); } }, '✕')),
+            h('textarea', { rows: 2, oninput: (e) => { m.text = e.target.value; } }, m.text))) : [h('div', { class: 'empty' }, 'Начните переписку ниже или выберите готовый сценарий.')]));
+          list.scrollTop = list.scrollHeight;
+        };
+        const nextTime = () => (msgs.length ? msgs[msgs.length - 1].offset_sec + 20 : 0);
+        const input = h('textarea', { rows: 2, placeholder: 'Текст реплики. Enter — добавить, Shift+Enter — новая строка', onkeydown: (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); add(); } } });
+        const add = () => { const t = input.value.trim(); if (!t) return; msgs.push({ speaker: role, text: t, offset_sec: nextTime() }); input.value = ''; role = role === 'client' ? 'operator' : 'client'; drawRoles(); draw(); input.focus(); };
+        const roleBox = h('div', { class: 'role-switch', role: 'radiogroup', 'aria-label': 'Кто пишет' });
+        const drawRoles = () => roleBox.replaceChildren(...['client', 'operator', 'bot', 'system'].map((r) => h('button', { type: 'button', role: 'radio', 'aria-checked': String(role === r), class: 'chip-btn' + (role === r ? ' on' : ''), onclick: () => { role = r; drawRoles(); input.focus(); } }, ROLE[r])));
+        drawRoles(); draw();
+        const go = h('button', { class: 'btn primary', type: 'button', onclick: () => finish({ ...st, transcript: msgs }, go) }, 'Оценить диалог');
+        body.append(h('div', { class: 'panel stack' },
+          metaEl,
+          h('div', { class: 'row' }, h('span', { class: 'small muted' }, 'Сценарий-пример:'),
+            h('select', { onchange: (e) => { msgs = (TEMPLATES[e.target.value] || []).map(([sp, tx, at], i) => ({ speaker: sp, text: tx, offset_sec: at ?? i * 25 })); st.title = e.target.value; draw(); } }, Object.keys(TEMPLATES).map((k) => h('option', { value: k }, k || '— выбрать —')))),
+          list,
+          h('div', { class: 'composer' }, roleBox, input, h('button', { class: 'btn', type: 'button', onclick: add }, 'Добавить')),
+          h('div', { class: 'row' }, go, h('span', { class: 'small muted' }, `Оценка по чек-листу «${cl.name}» v${cl.version}, около минуты`))));
+      }
+
+      if (tab === 'file') {
+        const area = h('textarea', { rows: 10, placeholder: 'Вставьте JSON (как в API организаторов) или текст по реплике на строку:\n[00:00] client: Где посмотреть тариф?\n[00:30] operator: Здравствуйте, меня зовут Алина…' });
+        const file = h('input', { type: 'file', accept: '.json,.txt,.csv', onchange: async (e) => { const f = e.target.files[0]; if (f) area.value = await f.text(); } });
+        const go = h('button', { class: 'btn primary', type: 'button', onclick: () => this.guard(async () => {
+          let text = area.value.trim();
+          if (!text) throw new Error('Вставьте текст или выберите файл');
+          if (/^conversation_id|^speaker|^role|;|,/.test(text.split('\n')[0]) && !text.startsWith('{') && !text.startsWith('[')) text = csvToLines(text);
+          go.disabled = true; go.textContent = 'Загружаю…';
+          try {
+            const r = await this.req('POST', '/api/conversations/upload?group_id=SANDBOX', text);
+            if (r.imported.length === 1) {
+              go.textContent = 'Идёт оценка…';
+              const ev = await this.req('POST', '/api/evaluate', { conversation_id: r.imported[0], checklist_id: cl.id });
+              this.go(`#/c/${encodeURIComponent(r.imported[0])}?ev=${ev.id}`);
+            } else { this.toast(`Загружено диалогов: ${r.imported.length}. Оцените их в разделе «Диалоги», набор SANDBOX.`); localStorage.setItem('cqa.group', 'SANDBOX'); this.go('#/'); }
+          } finally { go.disabled = false; go.textContent = 'Загрузить и оценить'; }
+        }) }, 'Загрузить и оценить');
+        body.append(h('div', { class: 'panel stack' },
+          h('p', { class: 'muted', style: { margin: 0 } }, 'Форматы: JSON записи или ответа API, массив записей, текст «[время] роль: реплика», CSV с колонками timestamp, speaker, text. Роли: client, operator, bot, system (или клиент, оператор, бот, система).'),
+          h('div', { class: 'row' }, file), area, h('div', { class: 'row' }, go)));
+      }
+
+      if (tab === 'audio') {
+        const { st, el: metaEl } = meta({ channel: 'voice call', noChannel: true });
+        st.language = 'auto';
+        metaEl.querySelector('select').prepend(h('option', { value: 'auto', selected: 'selected' }, 'Определить автоматически'));
+        const out = h('div');
+        const status = h('div', { class: 'small muted' });
+        const runAsr = async (blob, name) => {
+          out.replaceChildren(); status.textContent = `Распознаю речь (${name}, ${(blob.size / 1048576).toFixed(1)} МБ)… Это займёт от нескольких секунд до пары минут.`;
+          try {
+            const res = await fetch(`${this.api}/api/sandbox/transcribe?name=${encodeURIComponent(name)}&lang=${st.language}`, { method: 'POST', headers: { 'content-type': blob.type || 'application/octet-stream' }, body: blob });
+            const r = await res.json(); if (!res.ok) throw new Error(r.error || 'Ошибка распознавания');
+            status.textContent = `Распознано за ${r.seconds} с: язык ${LANG_NAME[r.language] || r.language || '—'}, длительность ${clock(r.duration)}, ${r.channels === 2 ? 'стерео — роли по каналам' : 'моно — роли по очереди, поправьте при необходимости'} (${r.device === 'cuda' ? 'видеокарта' : 'процессор'}).`;
+            if (['RU', 'KZ', 'EN'].includes(r.language)) st.language = r.language;
+            out.replaceChildren(this.turnEditor(r, st, (payload, btn) => finish(payload, btn)));
+          } catch (e) { status.textContent = ''; this.toast(e.message, true); }
+        };
+        const file = h('input', { type: 'file', accept: 'audio/*,.mp3,.wav,.ogg,.webm,.m4a,.aac,.flac', onchange: (e) => { const f = e.target.files[0]; if (f) runAsr(f, f.name); } });
+        // запись с микрофона
+        let rec = null, chunks = [], t0 = 0, timer = null;
+        const recBtn = h('button', { class: 'btn', type: 'button' }, '● Записать с микрофона');
+        const recTime = h('span', { class: 'small muted' });
+        recBtn.onclick = async () => {
+          if (rec?.state === 'recording') { rec.stop(); return; }
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            rec = new MediaRecorder(stream); chunks = [];
+            rec.ondataavailable = (e) => chunks.push(e.data);
+            rec.onstop = () => { stream.getTracks().forEach((t) => t.stop()); clearInterval(timer); recBtn.textContent = '● Записать с микрофона'; recBtn.classList.remove('rec'); const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' }); runAsr(blob, `запись-${new Date().toLocaleTimeString('ru-RU')}.webm`); };
+            rec.start(); t0 = Date.now(); recBtn.textContent = '■ Остановить'; recBtn.classList.add('rec');
+            timer = setInterval(() => { recTime.textContent = clock((Date.now() - t0) / 1000); }, 300);
+          } catch (e) { this.toast('Нет доступа к микрофону: ' + e.message, true); }
+        };
+        body.append(h('div', { class: 'panel stack' },
+          asr.available ? null : h('div', { class: 'review' }, 'Распознавание речи не установлено на сервере — см. README, раздел «Распознавание речи». Текстовые способы работают.'),
+          h('p', { class: 'muted', style: { margin: 0 } }, `Запись звонка или голосовое сообщение: mp3, wav, ogg, webm, m4a, flac. Распознавание локальное (faster-whisper, модель ${asr.model || 'medium'}), русский, казахский и английский. Стереозапись делится на собеседников по каналам.`),
+          metaEl,
+          h('div', { class: 'row' }, file, h('span', { class: 'muted' }, 'или'), recBtn, recTime),
+          status, out));
+      }
+    }
+
+    /** Редактор распознанных реплик: роль и текст каждой, затем оценка. */
+    turnEditor(r, st, finish) {
+      // склеиваем соседние фрагменты одного канала с паузой < 0,8 с в одну реплику
+      const turns = [];
+      for (const s of r.segments) {
+        const last = turns[turns.length - 1];
+        if (last && last.channel === s.channel && s.start - last.end < 0.8) { last.text += ' ' + s.text; last.end = s.end; }
+        else turns.push({ ...s });
+      }
+      let first = 'operator';
+      const assign = () => {
+        if (r.channels === 2) turns.forEach((t) => { t.speaker = t.channel === 0 ? first : first === 'operator' ? 'client' : 'operator'; });
+        else turns.forEach((t, i) => { t.speaker = i % 2 === 0 ? first : first === 'operator' ? 'client' : 'operator'; });
+      };
+      assign();
+      const box = h('div', { class: 'stack' });
+      const draw = () => box.replaceChildren(...turns.map((t, i) => h('div', { class: `bubble ${t.speaker}` },
+        h('div', { class: 'bubble-meta' },
+          h('select', { 'aria-label': 'Роль', onchange: (e) => { t.speaker = e.target.value; draw(); } }, Object.entries(ROLE).map(([v, tx]) => h('option', { value: v, selected: t.speaker === v ? 'selected' : null }, tx))),
+          h('span', { class: 'small muted' }, `${clock(t.start)}–${clock(t.end)}${r.channels === 2 ? `, канал ${t.channel + 1}` : ''}`),
+          h('button', { class: 'btn sm danger', type: 'button', 'aria-label': 'Удалить фрагмент', onclick: () => { turns.splice(i, 1); draw(); } }, '✕')),
+        h('textarea', { rows: 2, oninput: (e) => { t.text = e.target.value; } }, t.text))));
+      draw();
+      const go = h('button', { class: 'btn primary', type: 'button', onclick: () => finish({ title: st.title, language: st.language === 'auto' ? undefined : st.language, channel: 'voice call', upload_id: r.upload_id, transcript: turns.map((t) => ({ speaker: t.speaker, text: t.text, offset_sec: t.start })) }, go) }, 'Оценить разговор');
+      return h('div', { class: 'stack' },
+        h('div', { class: 'row' }, h('b', {}, `Реплик: ${turns.length}`), h('span', { class: 'muted small' }, 'Первым говорит:'),
+          ...['operator', 'client'].map((sp) => h('button', { type: 'button', class: 'chip-btn' + (first === sp ? ' on' : ''), onclick: (e) => { first = sp; assign(); draw(); e.target.parentElement.querySelectorAll('.chip-btn').forEach((b) => b.classList.toggle('on', b === e.target)); } }, ROLE[sp]))),
+        box, h('div', { class: 'row' }, go));
+    }
+
+    /** ИИ-помощник по диалогу: вопросы текстом и голосом. */
+    assistantPanel(conv, ev) {
+      const history = [];
+      const log = h('div', { class: 'assist-log', 'aria-live': 'polite' }, h('div', { class: 'assist-hint muted small' }, 'Спросите о диалоге или оценке. Ответ опирается на транскрипт, оценку и чек-лист.'));
+      const input = h('textarea', { rows: 2, placeholder: 'Например: что оператору нужно было сделать иначе?', onkeydown: (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(); } } });
+      const sendBtn = h('button', { class: 'btn primary', type: 'button' }, 'Спросить');
+      const micBtn = h('button', { class: 'btn', type: 'button', title: 'Задать вопрос голосом', 'aria-label': 'Задать вопрос голосом' }, '🎙 Голосом');
+      const bubble = (role, text) => { const b = h('div', { class: `assist-msg ${role}` }, text); log.append(b); log.scrollTop = log.scrollHeight; return b; };
+      const ask = async (q = input.value.trim()) => {
+        if (!q) return;
+        input.value = ''; log.querySelector('.assist-hint')?.remove();
+        bubble('user', q);
+        const wait = bubble('assistant pending', 'Думаю…');
+        sendBtn.disabled = true;
+        try {
+          const r = await this.req('POST', '/api/assistant', { conversation_id: conv.conversation_id, evaluation_id: ev?.id, question: q, history });
+          wait.textContent = r.answer; wait.classList.remove('pending');
+          history.push({ role: 'user', content: q }, { role: 'assistant', content: r.answer });
+        } catch (e) { wait.textContent = 'Не удалось получить ответ: ' + e.message; wait.classList.add('err'); }
+        finally { sendBtn.disabled = false; }
+      };
+      sendBtn.onclick = () => ask();
+      let rec = null;
+      micBtn.onclick = async () => {
+        if (rec?.state === 'recording') { rec.stop(); return; }
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const chunks = []; rec = new MediaRecorder(stream);
+          rec.ondataavailable = (e) => chunks.push(e.data);
+          rec.onstop = async () => {
+            stream.getTracks().forEach((t) => t.stop()); micBtn.textContent = '🎙 Голосом'; micBtn.classList.remove('rec');
+            micBtn.disabled = true; input.placeholder = 'Распознаю вопрос…';
+            try {
+              const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
+              const res = await fetch(`${this.api}/api/sandbox/transcribe?name=question.webm`, { method: 'POST', headers: { 'content-type': blob.type }, body: blob });
+              const r = await res.json(); if (!res.ok) throw new Error(r.error);
+              const text = r.segments.map((s) => s.text).join(' ').trim();
+              if (text) ask(text); else this.toast('Не удалось разобрать вопрос', true);
+            } catch (e) { this.toast('Голосовой вопрос: ' + e.message, true); }
+            finally { micBtn.disabled = false; input.placeholder = 'Например: что оператору нужно было сделать иначе?'; }
+          };
+          rec.start(); micBtn.textContent = '■ Остановить'; micBtn.classList.add('rec');
+        } catch (e) { this.toast('Нет доступа к микрофону: ' + e.message, true); }
+      };
+      const quick = ['Почему снижена оценка?', 'Как оператору нужно было ответить?', 'Составь текст апелляции по спорному критерию', 'Кратко перескажи диалог'];
+      return h('div', { class: 'panel assist' }, h('h2', {}, 'Спросить ИИ'),
+        h('div', { class: 'why-tabs', style: { marginTop: 0 } }, quick.map((q) => h('button', { class: 'chip-btn', type: 'button', onclick: () => ask(q) }, q))),
+        log, h('div', { class: 'assist-input' }, input, h('div', { class: 'row' }, micBtn, sendBtn)));
+    }
+
+    /** Расчёт «что если» и ручная оценка проверяющим. */
+    whatIfPanel(conv, ev) {
+      const cl = ev?.checklist || this.checklist;
+      const base = Object.fromEntries(cl.criteria.map((c) => [c.id, ev?.criteria.find((x) => x.criterion_id === c.id)?.final_answer ?? '']));
+      const answers = { ...base };
+      const comments = {};
+      const totalEl = h('b', { class: 'wi-total' }, ev ? fmt(ev.final_score.total) : '—');
+      const deltaEl = h('span', { class: 'wi-delta' });
+      const rowsEl = h('div', { class: 'wi-rows' });
+      const recalc = async () => {
+        if (cl.criteria.some((c) => answers[c.id] === '')) { totalEl.textContent = '—'; deltaEl.textContent = 'заполните все критерии'; return; }
+        const r = await this.req('POST', '/api/score', { checklist: cl, answers }).catch(() => null);
+        if (!r) return;
+        totalEl.textContent = r.total == null ? '—' : fmt(r.total);
+        const d = ev && r.total != null && ev.final_score.total != null ? r.total - ev.final_score.total : null;
+        deltaEl.textContent = d == null ? '' : Math.abs(d) < 0.005 ? 'без изменений' : `${d > 0 ? '+' : '−'}${fmt(Math.abs(d))} к текущему итогу`;
+        deltaEl.className = 'wi-delta ' + (d > 0 ? 'up' : d < 0 ? 'down' : '');
+        for (const c of cl.criteria) { const el = rowsEl.querySelector(`[data-c="${c.id}"] .wi-pts`); const p = r.per_criterion[c.id]; if (el) el.textContent = c.type === 'flag' ? (answers[c.id] === 'yes' ? 'грубая ошибка' : '') : p.points == null ? 'N/A, вес делится' : `${fmt(p.points, 1)} / ${fmt(p.max_points, 1)}`; }
+      };
+      for (const c of cl.criteria) {
+        rowsEl.append(h('div', { class: 'wi-row', 'data-c': c.id },
+          h('span', { class: 'wi-name' }, c.name),
+          h('select', { 'aria-label': c.name, onchange: (e) => { answers[c.id] = e.target.value; recalc(); } },
+            ev ? null : h('option', { value: '' }, '—'),
+            allowedAnswers(c).map((a) => h('option', { value: a, selected: answers[c.id] === a ? 'selected' : null }, answerLabel(c, a)))),
+          h('span', { class: 'wi-pts small muted' })));
+      }
+      const reviewer = h('input', { type: 'text', value: localStorage.getItem('cqa.reviewer') || 'Проверяющий QA', 'aria-label': 'Проверяющий', style: { width: '11rem' } });
+      const save = h('button', { class: 'btn', type: 'button', onclick: () => this.guard(async () => {
+        localStorage.setItem('cqa.reviewer', reviewer.value);
+        const r = await this.req('POST', '/api/evaluations/manual', { conversation_id: conv.conversation_id, checklist_id: cl.id, answers, comments, reviewer: reviewer.value });
+        this.toast(`Ручная оценка сохранена: ${fmt(r.final_score.total)} из 100`);
+        this.go(`#/c/${encodeURIComponent(conv.conversation_id)}?ev=${r.id}`);
+      }) }, 'Сохранить как ручную оценку');
+      setTimeout(recalc, 0);
+      return h('div', { class: 'panel whatif' },
+        h('h2', {}, ev ? 'Расчёт «что если»' : 'Ручная оценка'),
+        h('p', { class: 'small muted', style: { margin: '0 0 0.75rem' } }, 'Измените ответ по критерию — итог пересчитается по правилам чек-листа: шкала пропорционально весу, вес N/A делится между применимыми. Исходная оценка не меняется.'),
+        h('div', { class: 'wi-head' }, h('span', {}, 'Итог'), totalEl, deltaEl),
+        rowsEl,
+        h('div', { class: 'row', style: { marginTop: '0.75rem' } },
+          h('button', { class: 'btn', type: 'button', onclick: () => { Object.assign(answers, base); rowsEl.querySelectorAll('select').forEach((s, i) => { s.value = base[cl.criteria[i].id]; }); recalc(); } }, 'Сбросить'),
+          reviewer, save));
     }
 
     seek(audio, sec, play = true) {
@@ -655,16 +956,19 @@
     // =====================================================================
     async viewAppeals(view, appealId) {
       const list = await this.req('GET', '/api/appeals');
+      const reviewerNames = (await this.req('GET', '/api/reviewers').catch(() => ({ names: [] }))).names;
       if (!appealId) {
         const open = list.filter((a) => a.status === 'open');
         const done = list.filter((a) => a.status !== 'open');
         const table = (items) => items.length ? h('div', { class: 'table-wrap' }, h('table', {},
-          h('thead', {}, h('tr', {}, ['Диалог', 'Критерий', 'Оспорено', 'Комментарий', 'Решение', 'Итог', 'Дата'].map((t) => h('th', {}, t)))),
+          h('thead', {}, h('tr', {}, ['Диалог', 'Критерий', 'Оспорено', 'Комментарий', 'Решение', 'Итог', 'Проверяющий', 'Дата'].map((t) => h('th', {}, t)))),
           h('tbody', {}, items.map((a) => h('tr', { onclick: () => this.go(`#/appeals/${a.id}`) },
             h('td', {}, h('b', {}, a.conversation_id)), h('td', {}, a.criterion_name), h('td', {}, h('span', { class: 'tag' }, a.disputed_label)),
             h('td', { class: 'small', style: { maxWidth: '360px' } }, a.comment, h('div', { class: 'muted' }, a.author)),
             h('td', {}, a.decision ? h('span', { class: 'tag ' + (a.decision.action === 'change' ? 'warn' : 'yes') }, a.decision.action === 'change' ? `изменено → ${a.decision.new_label}` : 'подтверждено') : h('span', { class: 'tag blue' }, 'ожидает')),
             h('td', {}, a.decision ? `${fmt(a.decision.total_before)} → ${fmt(a.decision.total_after)}` : fmt(a.total_now)),
+            h('td', { onclick: (e) => e.stopPropagation() }, h('select', { 'aria-label': 'Проверяющий', onchange: (e) => this.guard(() => this.req('POST', '/api/assign', { appeal_ids: [a.id], assignee: e.target.value || null })) },
+              h('option', { value: '' }, '—'), [...new Set([...reviewerNames, ...(a.assignee ? [a.assignee] : [])])].map((n) => h('option', { value: n, selected: a.assignee === n ? 'selected' : null }, n)))),
             h('td', { class: 'small muted' }, fmtDate(a.created_at))))))) : h('div', { class: 'empty' }, 'Нет');
         view.append(h('div', { class: 'stack' },
           h('div', { class: 'panel' }, h('h1', {}, `Ожидают решения (${open.length})`), table(open)),

@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 // Загрузка наборов через API организаторов, импорт файлов и нормализация транскриптов.
 import { db } from './db.js';
 
@@ -36,10 +38,13 @@ export function normalizeRecord(r, groupId = 'UPLOAD') {
     text: String(m.text ?? m.message ?? ''),
   }));
   const abs = transcript.map((m) => parseTs(m.timestamp));
-  const t0 = abs.find((x) => x != null) ?? 0;
+  // time_origin = 'zero': метки уже отсчитаны от начала записи (загруженное аудио) — не сдвигаем
+  const t0 = r.time_origin === 'zero' ? 0 : abs.find((x) => x != null) ?? 0;
   transcript.forEach((m, i) => { m.offset_sec = abs[i] == null ? null : Math.max(0, Math.round((abs[i] - t0) * 10) / 10); });
   const channel = r.channel || (r.audio_url ? 'voice call' : 'agent chat');
   return {
+    ...(r.title ? { title: String(r.title).slice(0, 120) } : {}),
+    ...(r.source ? { source: r.source } : {}),
     conversation_id: String(r.conversation_id || r.id || `upload-${Date.now().toString(36)}`),
     group_id: r.dataset_group_id || groupId,
     channel,
@@ -110,7 +115,18 @@ export async function fetchGroup(groupId) {
 // audio_url указывает на HTML-страницу с плеером; внутри — подписанная ссылка на mp3 (живёт ~1 ч).
 // Достаём её при каждом запросе, чтобы встроенный плеер мог перематывать к реплике.
 const audioCache = new Map();
+/** Локальный файл загруженной записи: audio_url вида «upload:<id>». */
+export function localUpload(audioUrl) {
+  const m = /^upload:([\w.-]+)$/.exec(audioUrl || '');
+  if (!m) return null;
+  const dir = path.join(process.env.CQA_STORAGE_DIR || path.resolve('storage'), 'uploads');
+  if (!fs.existsSync(dir)) return null;
+  const f = fs.readdirSync(dir, { withFileTypes: true }).find((d) => d.name.startsWith(m[1] + '.'));
+  return f ? path.join(dir, f.name) : null;
+}
+
 export async function resolveAudio(audioUrl) {
+  if (audioUrl?.startsWith('upload:')) return `/api/uploads/${audioUrl.slice(7)}`;
   const hit = audioCache.get(audioUrl);
   if (hit && hit.expires > Date.now()) return hit.src;
   const res = await fetch(audioUrl, { signal: AbortSignal.timeout(30_000) });

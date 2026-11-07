@@ -59,6 +59,8 @@ export const db = {
     if (i >= 0) { list.splice(i, 1); persist(name); return true; }
     return false;
   },
+  /** Сохранить коллекцию после изменения документов на месте. */
+  touch(name) { load(name); return persist(name); },
   flush() { return Promise.all([...writing.values()]); },
   // Крупные данные (трассировки) — отдельный файл на запись, чтобы не перезаписывать общий JSON.
   writeBlob(kind, id, obj) {

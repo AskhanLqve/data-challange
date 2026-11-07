@@ -118,6 +118,7 @@ async function ollamaJSON({ system, user, schema }) {
       // temperature 0 + seed — воспроизводимая оценка; ответ одного критерия короткий, длину ограничиваем
       options: { temperature: 0, seed: 42, num_ctx: Number(process.env.OLLAMA_NUM_CTX || 12288), num_predict: Number(process.env.OLLAMA_NUM_PREDICT || 2048) },
       keep_alive: process.env.OLLAMA_KEEP_ALIVE || '30m', // модель остаётся в памяти между диалогами
+      ...(process.env.OLLAMA_THINK ? { think: process.env.OLLAMA_THINK === 'true' } : {}), // для моделей с режимом рассуждения (qwen3)
       messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
     }),
     signal: AbortSignal.timeout(15 * 60_000),
@@ -147,4 +148,37 @@ function fillFromSchema(js) {
 async function stubJSON({ schema }) {
   const parsed = schema.parse(fillFromSchema(z.toJSONSchema(schema)));
   return { parsed, usage: { input_tokens: 0, output_tokens: 0 }, model: 'stub', cost_usd: 0, stop_reason: 'end_turn', text: JSON.stringify(parsed) };
+}
+
+/**
+ * Обычный текстовый ответ (ИИ-помощник): system + история сообщений [{role:'user'|'assistant', content}].
+ * @returns {Promise<{text:string, usage:any, model:string, cost_usd:number}>}
+ */
+export async function completeText({ system, messages }) {
+  if (PROVIDER === 'stub') return { text: 'Ответ помощника (тестовая заглушка).', usage: {}, model: 'stub', cost_usd: 0 };
+  if (PROVIDER === 'ollama') {
+    const res = await fetch(`${OLLAMA_URL}/api/chat`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: MODEL, stream: false, keep_alive: process.env.OLLAMA_KEEP_ALIVE || '30m',
+        ...(process.env.OLLAMA_THINK ? { think: process.env.OLLAMA_THINK === 'true' } : {}),
+        options: { temperature: 0.2, seed: 42, num_ctx: Number(process.env.OLLAMA_NUM_CTX || 12288), num_predict: 1024 },
+        messages: [{ role: 'system', content: system }, ...messages],
+      }),
+      signal: AbortSignal.timeout(10 * 60_000),
+    });
+    if (!res.ok) throw new Error(`Ollama HTTP ${res.status}: ${await res.text()}`);
+    const body = await res.json();
+    const text = (body.message?.content || '').replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+    return { text, usage: { input_tokens: body.prompt_eval_count || 0, output_tokens: body.eval_count || 0 }, model: MODEL, cost_usd: 0 };
+  }
+  const res = await anthropic().beta.messages.create({
+    model: MODEL, max_tokens: 4000,
+    system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
+    messages, output_config: { effort: 'low' },
+    betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default',
+  });
+  if (res.stop_reason === 'refusal') throw new Error('Модель отказалась отвечать');
+  const text = res.content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim();
+  return { text, usage: res.usage, model: res.model, cost_usd: estimateCost(MODEL, res.usage) };
 }

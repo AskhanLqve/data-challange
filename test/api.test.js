@@ -198,3 +198,47 @@ test('аналитика и results.json по набору', async () => {
   assert.ok(p.data.problems.some((x) => /ожидается 10/.test(x)));
   assert.equal((await api('GET', '/api/audio/t-chat-1/file')).status, 404);
 });
+
+test('песочница, «что если», ручная оценка, распределение, помощник', async () => {
+  // свой диалог без API
+  const bad = await api('POST', '/api/sandbox/create', { transcript: [{ speaker: 'client', text: 'Привет' }] });
+  assert.equal(bad.status, 400, 'без оператора оценивать нечего');
+  const sb = await api('POST', '/api/sandbox/create', { title: 'Тест', language: 'RU', transcript: [
+    { speaker: 'client', text: 'Где тариф?', offset_sec: 0 }, { speaker: 'operator', text: 'Здравствуйте, я Анна. Во вкладке «Кабинет».', offset_sec: 30 }] });
+  assert.equal(sb.status, 200);
+  assert.equal(sb.data.group_id, 'SANDBOX');
+  assert.equal(sb.data.transcript[1].offset_sec, 30, 'время от начала, без сдвига');
+  const ev = await api('POST', '/api/evaluate', { conversation_id: sb.data.conversation_id, checklist_id: 'cqa-default' });
+  assert.equal(ev.status, 200);
+
+  // «что если»: N/A перераспределяет вес
+  const sc = await api('POST', '/api/score', { checklist_id: 'cqa-default', answers: { c01: 'no', c02: 'yes', c03: 'na', c04: '20', c05: 'yes', c06: '10', c07: 'yes', c08: 'no' } });
+  assert.equal(sc.data.total, 87.5);
+
+  // ручная оценка проверяющим
+  const manualBad = await api('POST', '/api/evaluations/manual', { conversation_id: sb.data.conversation_id, checklist_id: 'cqa-default', answers: { c01: 'yes' } });
+  assert.equal(manualBad.status, 400);
+  const manual = await api('POST', '/api/evaluations/manual', { conversation_id: sb.data.conversation_id, checklist_id: 'cqa-default', reviewer: 'QA Иван',
+    answers: { c01: 'yes', c02: 'na', c03: 'na', c04: '20', c05: 'yes', c06: '10', c07: 'no', c08: 'no' }, comments: { c07: 'Нет итога' }, evidence: { c01: [2] } });
+  assert.equal(manual.status, 200);
+  assert.equal(manual.data.final_score.total, 92.31);
+  assert.equal(manual.data.provider, 'manual');
+  assert.equal(manual.data.criteria[0].ai.evidence[0].message, 2);
+
+  // распределение
+  await api('PUT', '/api/reviewers', { names: ['Айгерим', 'Иван', 'Айгерим'] });
+  assert.deepEqual((await api('GET', '/api/reviewers')).data.names, ['Айгерим', 'Иван']);
+  const auto = await api('POST', '/api/assign/auto', { conversation_ids: ['b-1', 'b-2', 'b-3'] });
+  assert.equal(Object.values(auto.data.plan).reduce((a, b) => a + b, 0), 3);
+  assert.ok(Math.abs(auto.data.load['Айгерим'] - auto.data.load['Иван']) <= 1, 'поровну');
+  await api('POST', '/api/assign', { conversation_ids: ['b-1'], assignee: 'Иван' });
+  const list = (await api('GET', '/api/conversations?group_id=B')).data;
+  assert.equal(list.find((c) => c.conversation_id === 'b-1').assignee, 'Иван');
+
+  // помощник (заглушка модели)
+  const as = await api('POST', '/api/assistant', { conversation_id: sb.data.conversation_id, question: 'Почему такая оценка?' });
+  assert.equal(as.status, 200);
+  assert.ok(as.data.answer);
+  assert.equal((await api('POST', '/api/assistant', { question: ' ' })).status, 400);
+  assert.equal((await api('GET', '/api/uploads/nope')).status, 404);
+});

@@ -4,10 +4,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { db, newId } from './db.js';
 import { DEFAULT_CHECKLIST } from './defaultChecklist.js';
-import { fetchGroup, extractRecords, importRecords, resolveAudio } from './dataset.js';
+import { fetchGroup, extractRecords, importRecords, resolveAudio, localUpload, normalizeRecord } from './dataset.js';
+import { transcribeFile, asrAvailable, ASR_MODEL } from './asr.js';
 import { evaluateConversation, recomputeFinal, startBatch, getJob, listJobs, publicJob, resumeJobs, saveEvaluation, migrateTraces } from './evaluator.js';
-import { providerInfo, providerReady } from './llm.js';
-import { allowedAnswers, answerLabel } from './scoring.js';
+import { providerInfo, providerReady, completeText } from './llm.js';
+import { allowedAnswers, answerLabel, computeScore, normalizeAnswer } from './scoring.js';
 import { buildResults, validateResults } from './results.js';
 
 const PORT = Number(process.env.PORT || 3000);
@@ -70,7 +71,7 @@ function convSummary(c) {
   const last = evs.sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
   return {
     conversation_id: c.conversation_id, group_id: c.group_id, channel: c.channel, language: c.language,
-    messages: c.transcript.length, has_audio: Boolean(c.audio_url),
+    messages: c.transcript.length, has_audio: Boolean(c.audio_url), assignee: c.assignee || null, title: c.title || null, source: c.source || 'api',
     preview: (c.transcript.find((m) => m.speaker === 'client')?.text || '').slice(0, 140),
     last_evaluation: last ? { id: last.id, total: last.final_score.total, original_total: last.original_score.total, gross: last.final_score.gross_error, checklist_name: last.checklist.name, checklist_version: last.checklist_version, created_at: last.created_at, status: last.status } : null,
     evaluations: evs.length,
@@ -81,7 +82,7 @@ function csvEscape(v) { const s = v == null ? '' : String(v); return /[",\n;]/.t
 
 // ---------- маршруты ----------
 const routes = [];
-const route = (method, pattern, handler) => routes.push({ method, re: new RegExp('^' + pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)') + '$'), handler });
+const route = (method, pattern, handler, opts = {}) => routes.push({ method, re: new RegExp('^' + pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)') + '$'), handler, ...opts });
 
 route('GET', '/api/health', async () => ({ ok: true, ...providerInfo(), ...(await providerReady()) }));
 
@@ -166,6 +167,8 @@ route('GET', '/api/audio/:id', async ({ p, res }) => {
 route('GET', '/api/audio/:id/file', async ({ p, res }) => {
   const c = db.get('conversations', decodeURIComponent(p.id), 'conversation_id');
   if (!c?.audio_url) throw new HttpError(404, 'У диалога нет записи');
+  const local = localUpload(c.audio_url);
+  if (local) { const buf = fs.readFileSync(local); res.writeHead(200, { 'content-type': mimeOf(local), 'content-length': buf.length }); return res.end(buf); }
   const src = await resolveAudio(c.audio_url);
   const up = await fetch(src, { signal: AbortSignal.timeout(120_000) });
   if (!up.ok) throw new HttpError(502, `Запись недоступна (HTTP ${up.status})`);
@@ -344,6 +347,162 @@ route('GET', '/api/results', ({ q }) => {
   return { doc, problems };
 });
 
+// ===================== Песочница: свои диалоги, аудио, микрофон =====================
+const UPLOADS = path.join(process.env.CQA_STORAGE_DIR || path.resolve('storage'), 'uploads');
+const AUDIO_EXT = { 'audio/mpeg': 'mp3', 'audio/mp3': 'mp3', 'audio/wav': 'wav', 'audio/x-wav': 'wav', 'audio/wave': 'wav', 'audio/ogg': 'ogg', 'audio/webm': 'webm', 'video/webm': 'webm', 'audio/mp4': 'm4a', 'audio/x-m4a': 'm4a', 'audio/aac': 'aac', 'audio/flac': 'flac' };
+function mimeOf(f) { const e = path.extname(f).slice(1); return { mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', webm: 'audio/webm', m4a: 'audio/mp4', aac: 'audio/aac', flac: 'audio/flac' }[e] || 'application/octet-stream'; }
+async function readRaw(req, limit = 200 * 1024 * 1024) {
+  const chunks = []; let size = 0;
+  for await (const ch of req) { size += ch.length; if (size > limit) throw new HttpError(413, 'Файл больше 200 МБ'); chunks.push(ch); }
+  return Buffer.concat(chunks);
+}
+
+route('GET', '/api/asr/status', () => ({ available: asrAvailable(), model: ASR_MODEL }));
+
+// Аудиофайл или запись с микрофона → распознавание. Тело — сами байты, тип — в content-type.
+route('POST', '/api/sandbox/transcribe', async ({ req, q }) => {
+  const ct = (req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+  const ext = AUDIO_EXT[ct] || (q.get('name') || '').split('.').pop().toLowerCase();
+  if (!Object.values(AUDIO_EXT).includes(ext)) throw new HttpError(415, 'Поддерживаются аудиофайлы mp3, wav, ogg, webm, m4a, aac, flac');
+  const buf = await readRaw(req);
+  if (buf.length < 1000) throw new HttpError(400, 'Слишком короткая запись');
+  fs.mkdirSync(UPLOADS, { recursive: true });
+  const id = newId('up');
+  const file = path.join(UPLOADS, `${id}.${ext}`);
+  fs.writeFileSync(file, buf);
+  const lang = ({ RU: 'ru', KZ: 'kk', EN: 'en' })[(q.get('lang') || '').toUpperCase()] || 'auto';
+  const started = Date.now();
+  const r = await transcribeFile(file, { lang });
+  return { upload_id: id, file_name: q.get('name') || `${id}.${ext}`, ...r, language: ({ ru: 'RU', kk: 'KZ', en: 'EN' })[r.language] || (r.language || '').toUpperCase(), seconds: Math.round((Date.now() - started) / 100) / 10 };
+}, { raw: true });
+
+// Загруженная запись: отдаём с поддержкой Range, чтобы плеер мог перематывать.
+route('GET', '/api/uploads/:id', ({ p, req, res }) => {
+  const f = localUpload(`upload:${p.id}`);
+  if (!f) throw new HttpError(404, 'Файл не найден');
+  const size = fs.statSync(f).size;
+  const m = /bytes=(\d*)-(\d*)/.exec(req.headers.range || '');
+  if (m) {
+    const start = m[1] ? Number(m[1]) : 0, end = m[2] ? Math.min(Number(m[2]), size - 1) : size - 1;
+    res.writeHead(206, { 'content-type': mimeOf(f), 'content-range': `bytes ${start}-${end}/${size}`, 'accept-ranges': 'bytes', 'content-length': end - start + 1 });
+    return fs.createReadStream(f, { start, end }).pipe(res);
+  }
+  res.writeHead(200, { 'content-type': mimeOf(f), 'content-length': size, 'accept-ranges': 'bytes' });
+  fs.createReadStream(f).pipe(res);
+});
+
+// Новый диалог из песочницы (конструктор, текст или распознанное аудио).
+route('POST', '/api/sandbox/create', ({ body }) => {
+  const tr = (body.transcript || []).filter((m) => String(m.text || '').trim());
+  if (!tr.length) throw new HttpError(400, 'Добавьте хотя бы одну реплику');
+  if (!tr.some((m) => m.speaker === 'operator')) throw new HttpError(400, 'В диалоге нет ни одной реплики оператора — оценивать нечего');
+  const mmss = (sec) => `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
+  const isAudio = Boolean(body.upload_id && localUpload(`upload:${body.upload_id}`));
+  const rec = {
+    conversation_id: `sb-${Date.now().toString(36)}`,
+    title: body.title, source: isAudio ? 'audio' : 'sandbox',
+    channel: body.channel === 'voice call' || isAudio ? 'voice call' : 'agent chat',
+    language: ['RU', 'KZ', 'EN'].includes(body.language) ? body.language : undefined,
+    audio_url: isAudio ? `upload:${body.upload_id}` : null,
+    time_origin: 'zero',
+    transcript: tr.map((m, i) => ({ timestamp: mmss(Number.isFinite(+m.offset_sec) ? +m.offset_sec : i * 20), speaker: m.speaker, text: String(m.text).trim() })),
+  };
+  const conv = normalizeRecord(rec, 'SANDBOX');
+  db.upsert('conversations', conv, 'conversation_id');
+  return conv;
+});
+
+// ===================== ИИ-помощник по диалогу и оценке =====================
+route('POST', '/api/assistant', async ({ body }) => {
+  const q = String(body.question || '').trim();
+  if (!q) throw new HttpError(400, 'Задайте вопрос');
+  const conv = body.conversation_id ? db.get('conversations', body.conversation_id, 'conversation_id') : null;
+  const ev = body.evaluation_id ? db.get('evaluations', body.evaluation_id) : conv ? db.filter('evaluations', (e) => e.conversation_id === conv.conversation_id).sort((a, b) => b.created_at.localeCompare(a.created_at))[0] : null;
+  const cl = ev?.checklist || db.get('checklists', body.checklist_id) || db.all('checklists')[0];
+  const ctx = [];
+  ctx.push(`Чек-лист «${cl.name}»:\n` + cl.criteria.map((c) => `- ${c.code} ${c.name} (${c.type === 'flag' ? 'флаг' : 'вес ' + c.weight}${c.na_allowed ? ', N/A: ' + c.na_condition : ''}): ${c.description}`).join('\n'));
+  if (conv) ctx.push(`Диалог ${conv.conversation_id} (${conv.channel}, ${conv.language}):\n` + conv.transcript.map((m) => `#${m.idx} ${m.speaker}: ${m.text}`).join('\n'));
+  if (ev) ctx.push(`Оценка системы: итог ${ev.final_score.total ?? '—'} из 100${ev.final_score.gross_error ? ', есть грубая ошибка' : ''}.\n` + ev.criteria.map((r) => {
+    const c = cl.criteria.find((x) => x.id === r.criterion_id);
+    return `- ${c?.name}: ${answerLabel(c, r.final_answer)}${r.final_answer !== r.ai.answer ? ` (ИИ: ${answerLabel(c, r.ai.answer)}, изменено проверяющим)` : ''}. ${r.ai.explanation} Реплики: ${(r.ai.evidence || []).map((e) => '#' + e.message).join(', ') || '—'}`;
+  }).join('\n'));
+  const system = [
+    'Ты — ИИ-помощник отдела контроля качества брокерской компании. Отвечаешь специалистам QA, руководителям и операторам.',
+    'Опирайся только на данные ниже: чек-лист, транскрипт и оценку. Не выдумывай реплики; ссылайся на номера (#N).',
+    'Если просят текст апелляции или рекомендацию оператору — пиши кратко, по делу, деловым языком. Отвечай на языке вопроса, по умолчанию по-русски. 3–8 предложений, без лишних вступлений.',
+    '', ...ctx,
+  ].join('\n');
+  const history = (body.history || []).slice(-8).filter((m) => ['user', 'assistant'].includes(m.role) && m.content).map((m) => ({ role: m.role, content: String(m.content).slice(0, 4000) }));
+  const r = await completeText({ system, messages: [...history, { role: 'user', content: q }] });
+  return { answer: r.text, model: r.model, cost_usd: r.cost_usd };
+});
+
+// ===================== Расчёт «что если» и ручная оценка =====================
+route('POST', '/api/score', ({ body }) => {
+  const cl = body.checklist || db.get('checklists', body.checklist_id) || db.all('checklists')[0];
+  const answers = {};
+  for (const c of cl.criteria) answers[c.id] = body.answers?.[c.id] == null ? null : normalizeAnswer(c, body.answers[c.id]).answer;
+  return computeScore(cl, answers);
+});
+
+route('POST', '/api/evaluations/manual', ({ body }) => {
+  const conv = db.get('conversations', body.conversation_id, 'conversation_id');
+  if (!conv) throw new HttpError(404, 'Диалог не найден');
+  const cl = structuredClone(db.get('checklists', body.checklist_id) || db.all('checklists')[0]);
+  const answers = {};
+  for (const c of cl.criteria) {
+    const raw = body.answers?.[c.id];
+    if (raw == null || raw === '') throw new HttpError(400, `Не заполнен критерий «${c.name}»`);
+    if (!allowedAnswers(c).includes(String(raw))) throw new HttpError(400, `«${c.name}»: недопустимое значение ${raw}`);
+    answers[c.id] = String(raw);
+  }
+  const score = computeScore(cl, answers);
+  const who = String(body.reviewer || 'Проверяющий').slice(0, 80);
+  const ev = {
+    id: newId('ev'), conversation_id: conv.conversation_id, group_id: conv.group_id, checklist_id: cl.id, checklist_version: cl.version, checklist: cl,
+    created_at: new Date().toISOString(), provider: 'manual', model: who, effort: null, runs: 1, mode: 'manual', duration_ms: 0, usage: {}, cost_usd: 0,
+    summary: body.summary || `Ручная оценка: ${who}`,
+    criteria: cl.criteria.map((c) => ({ criterion_id: c.id, final_answer: answers[c.id], original: score.per_criterion[c.id], final: score.per_criterion[c.id],
+      ai: { answer: answers[c.id], label: answerLabel(c, answers[c.id]), explanation: String(body.comments?.[c.id] || 'Ручная оценка проверяющего.'), evidence: (body.evidence?.[c.id] || []).filter((n) => n >= 1 && n <= conv.transcript.length).map((n) => ({ message: n, quote: conv.transcript[n - 1].text.slice(0, 160), speaker: conv.transcript[n - 1].speaker, timestamp: conv.transcript[n - 1].timestamp, offset_sec: conv.transcript[n - 1].offset_sec })), checked_range: null, agreement: 1 } })),
+    original_score: score, final_score: score, status: 'manual',
+  };
+  saveEvaluation(ev);
+  return ev;
+});
+
+// ===================== Распределение между проверяющими =====================
+const reviewers = () => db.get('settings', 'reviewers')?.names || [];
+route('GET', '/api/reviewers', () => ({ names: reviewers() }));
+route('PUT', '/api/reviewers', ({ body }) => {
+  const names = [...new Set((body.names || []).map((n) => String(n).trim()).filter(Boolean))].slice(0, 50);
+  db.upsert('settings', { id: 'reviewers', names });
+  return { names };
+});
+// Назначить конкретному проверяющему (или снять: assignee = null).
+route('POST', '/api/assign', ({ body }) => {
+  const who = body.assignee ? String(body.assignee).trim() : null;
+  let n = 0;
+  for (const id of body.conversation_ids || []) { const c = db.get('conversations', id, 'conversation_id'); if (c) { c.assignee = who; n++; } }
+  for (const id of body.appeal_ids || []) { const a = db.get('appeals', id); if (a) { a.assignee = who; n++; } }
+  db.touch('conversations'); db.touch('appeals');
+  return { updated: n };
+});
+// Распределить поровну с учётом текущей нагрузки (у кого меньше назначенных — тому следующий).
+route('POST', '/api/assign/auto', ({ body }) => {
+  const names = (body.reviewers?.length ? body.reviewers : reviewers()).map(String);
+  if (!names.length) throw new HttpError(400, 'Добавьте проверяющих');
+  const load = Object.fromEntries(names.map((n) => [n, db.filter('conversations', (c) => c.assignee === n).length]));
+  const plan = {};
+  for (const id of body.conversation_ids || []) {
+    const c = db.get('conversations', id, 'conversation_id'); if (!c) continue;
+    if (c.assignee && load[c.assignee] != null) load[c.assignee]--;
+    const who = names.reduce((a, b) => (load[b] < load[a] ? b : a));
+    c.assignee = who; load[who]++; plan[who] = (plan[who] || 0) + 1;
+  }
+  db.touch('conversations');
+  return { plan, load };
+});
+
 // ---------- сервер ----------
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.json': 'application/json', '.ico': 'image/x-icon' };
 
@@ -360,7 +519,7 @@ const server = http.createServer(async (req, res) => {
         if (r.method !== req.method) continue;
         const m = url.pathname.match(r.re);
         if (!m) continue;
-        const body = ['POST', 'PUT'].includes(req.method) ? await readBody(req) : null;
+        const body = ['POST', 'PUT'].includes(req.method) && !r.raw ? await readBody(req) : null;
         const out = await r.handler({ req, res, p: m.groups || {}, q: url.searchParams, body });
         if (!res.headersSent) send(res, 200, out ?? {});
         return;
