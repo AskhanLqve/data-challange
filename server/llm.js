@@ -4,7 +4,7 @@ import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { z } from 'zod';
 
 export const PROVIDER = (process.env.CQA_PROVIDER || 'anthropic').toLowerCase();
-export const MODEL = process.env.CQA_MODEL || (PROVIDER === 'ollama' ? 'qwen2.5:7b-instruct' : PROVIDER === 'stub' ? 'stub' : 'claude-opus-5-5');
+export const MODEL = process.env.CQA_MODEL || (PROVIDER === 'ollama' ? 'qwen3:8b' : PROVIDER === 'stub' ? 'stub' : 'claude-opus-5-5');
 export const EFFORT = process.env.CQA_EFFORT || 'high';
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 // qwen3 по умолчанию рассуждает перед ответом — для оценки по схеме это лишние минуты, поэтому выключаем, если не задано явно
@@ -63,7 +63,10 @@ export async function completeJSON(args) {
   // Повтор при сбое: битый JSON, таймаут, временная ошибка сети/модели.
   let lastErr;
   for (let attempt = 0; attempt <= RETRIES; attempt++) {
-    try { return await completeOnce(args); } catch (e) {
+    // повтор того же запроса с temperature 0 и тем же seed даёт тот же сбой (например, зацикливание до лимита длины),
+    // поэтому повторные попытки идут с другим seed и небольшой температурой
+    const retryArgs = attempt && args.temperature == null ? { ...args, temperature: 0.3, seed: 42 + attempt } : args;
+    try { return await completeOnce(retryArgs); } catch (e) {
       lastErr = e;
       const fatal = /refusal|ключ|API key|401|403|не скачана/i.test(String(e.message));
       if (fatal || attempt === RETRIES) break;
@@ -130,6 +133,7 @@ async function ollamaJSON({ system, user, schema, temperature = 0, seed = 42 }) 
   if (!res.ok) throw new Error(`Ollama HTTP ${res.status}: ${await res.text()}`);
   const body = await res.json();
   const text = body.message?.content || '';
+  if (body.done_reason === 'length') throw new Error(`Ответ модели обрезан по лимиту длины (${body.eval_count} токенов)`);
   const parsed = schema.parse(JSON.parse(text));
   const usage = { input_tokens: body.prompt_eval_count || 0, output_tokens: body.eval_count || 0 };
   return { parsed, usage, model: MODEL, cost_usd: 0, stop_reason: body.done_reason, text };
