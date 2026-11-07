@@ -4,307 +4,449 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>CQA — контроль качества диалогов</title>
-<meta name="description" content="Прототип Conversation Quality Analytics: оценка работы операторов по чек-листу, где каждый балл опирается на реплику из диалога.">
+<meta name="description" content="Conversation Quality Analytics: ИИ оценивает работу операторов по чек-листу, каждый балл опирается на реплику из диалога.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  /* Концепция «протокол проверки»: бумага, зелёные чернила, маркер на репликах-доказательствах.
-     Палитра: бумага, чернила, зелёный Freedom (пройдено), маркер (доказательство), сигнал (нарушение), линия. */
+  /* Стилистика в духе uniq.com.kz: светлый фон, яркий синий, Geist, крупная плотная типографика,
+     плавающая шапка-пилюля, круглые кнопки, мягкие голубые свечения. Контент и макеты — свои. */
   :root {
-    --paper: #fafbf9; --ink: #12261c; --ink-2: #4b5d53; --green: #087a43; --green-bright: #0a8f4f;
-    --marker: #ddf2e5; --signal: #b8322a; --signal-wash: #fbe9e7; --line: #d6ded9; --panel: #ffffff;
-    --s-display: 3rem; --s-section: 1.5rem; --s-body: 1rem; --s-meta: 0.875rem;
+    --bg: #f9f9fa; --surface: #ffffff; --surface-2: #f3f5f9; --ink: #10131a; --ink-2: #5b6474; --ink-3: #9aa1ad;
+    --blue: #0a6cff; --blue-hover: #0057d9; --blue-deep: #0a2db6; --blue-soft: #e8f1ff; --cyan: #19c3f0; --violet: #6b4ef0;
+    --line: #e4e8ef; --ok: #12a150; --bad: #e5484d; --radius: 1.2rem;
+    --shadow: 0 1px 2px rgba(16,19,26,.04), 0 8px 24px rgba(16,19,26,.06);
     color-scheme: light;
+  }
+  :root[data-theme="dark"] {
+    --bg: #050914; --surface: #0b1120; --surface-2: #111a2e; --ink: #eef2fb; --ink-2: #9aa6bd; --ink-3: #5d6880;
+    --blue: #2f84ff; --blue-hover: #4d97ff; --blue-deep: #8fb6ff; --blue-soft: #0f2346; --line: #1a2440;
+    --ok: #3ccf7f; --bad: #ff6b70; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+    color-scheme: dark;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --paper: #0f1713; --ink: #e4ebe6; --ink-2: #9fb0a6; --green: #4cc488; --green-bright: #4cc488;
-      --marker: #1d3a2a; --signal: #ff8a80; --signal-wash: #3a1f1c; --line: #2a3a31; --panel: #15201a;
+      --bg: #050914; --surface: #0b1120; --surface-2: #111a2e; --ink: #eef2fb; --ink-2: #9aa6bd; --ink-3: #5d6880;
+      --blue: #2f84ff; --blue-hover: #4d97ff; --blue-deep: #8fb6ff; --blue-soft: #0f2346; --line: #1a2440;
+      --ok: #3ccf7f; --bad: #ff6b70; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
       color-scheme: dark;
     }
   }
-  :root[data-theme="dark"] {
-    --paper: #0f1713; --ink: #e4ebe6; --ink-2: #9fb0a6; --green: #4cc488; --green-bright: #4cc488;
-    --marker: #1d3a2a; --signal: #ff8a80; --signal-wash: #3a1f1c; --line: #2a3a31; --panel: #15201a;
-    color-scheme: dark;
-  }
   * { box-sizing: border-box; }
-  html { -webkit-text-size-adjust: 100%; }
-  body { margin: 0; background: var(--paper); color: var(--ink); font: 400 var(--s-body)/1.55 "Golos Text", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-variant-numeric: tabular-nums; }
-  a { color: var(--green); text-underline-offset: 3px; }
-  :focus-visible { outline: 3px solid var(--green-bright); outline-offset: 2px; border-radius: 4px; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 400 1rem/1.6 "Geist", -apple-system, "Segoe UI", Roboto, sans-serif; font-variant-numeric: tabular-nums; overflow-x: hidden; }
+  a { color: inherit; }
+  :focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; border-radius: 0.5rem; }
   .wrap { max-width: 72rem; margin: 0 auto; padding-inline: 1.5rem; }
-  h1, h2, h3 { margin: 0; text-wrap: balance; }
-  h1 { font-size: var(--s-display); line-height: 1.08; font-weight: 700; letter-spacing: -0.02em; }
-  h2 { font-size: var(--s-section); line-height: 1.25; font-weight: 700; letter-spacing: -0.01em; }
-  h3 { font-size: var(--s-body); font-weight: 600; }
-  p { margin: 0; text-wrap: pretty; }
-  .meta { font-size: var(--s-meta); color: var(--ink-2); }
+  h1, h2, h3, p { margin: 0; }
+  h1, h2 { text-wrap: balance; font-weight: 650; }
+  .two-tone .dim { color: var(--ink-3); }
+  .two-tone .blue { color: var(--blue); }
+  .label { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--blue); }
+  .muted { color: var(--ink-2); }
 
-  /* шапка */
-  header.top { border-bottom: 1px solid var(--line); background: var(--paper); position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; }
-  header.top .wrap { display: flex; align-items: center; gap: 2rem; min-height: 4rem; }
-  .brand { display: flex; align-items: center; gap: 0.6rem; font-weight: 700; color: var(--ink); text-decoration: none; }
-  .brand svg { width: 1.6rem; height: 1.6rem; }
-  header nav { display: flex; gap: 1.5rem; flex: 1; }
-  header nav a { color: var(--ink-2); text-decoration: none; font-size: var(--s-meta); }
-  header nav a:hover { color: var(--ink); }
-  .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 2.75rem; padding: 0 1.25rem; border-radius: 0.5rem; font: 600 var(--s-body)/1 inherit; text-decoration: none; border: 1px solid var(--line); color: var(--ink); background: var(--panel); white-space: nowrap; }
-  .btn.primary { background: var(--green); border-color: var(--green); color: #fff; }
-  .btn.primary:hover { background: #066536; }
-  .btn:not(.primary):hover { border-color: var(--ink-2); }
-  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.primary { color: #0f1713; } }
-  :root[data-theme="dark"] .btn.primary { color: #0f1713; }
+  /* шапка-пилюля */
+  .nav-shell { position: sticky; top: calc(0.75rem + env(safe-area-inset-top, 0px)); z-index: 20; padding-inline: 1rem; }
+  .nav { max-width: 72rem; margin: 0.75rem auto 0; display: flex; align-items: center; gap: 1.5rem; padding: 0.5rem 0.5rem 0.5rem 1rem;
+    background: color-mix(in srgb, var(--surface) 85%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--line); border-radius: 1.1rem; box-shadow: var(--shadow); }
+  .brand { display: flex; align-items: center; gap: 0.6rem; font-weight: 700; letter-spacing: 0.06em; text-decoration: none; }
+  .brand svg { width: 1.75rem; height: 1.75rem; }
+  .nav nav { display: flex; gap: 1.75rem; flex: 1; justify-content: center; }
+  .nav nav a { text-decoration: none; font-size: 0.875rem; color: var(--ink-2); }
+  .nav nav a:hover { color: var(--ink); }
+  .icon-btn { width: 2.5rem; height: 2.5rem; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--ink); display: grid; place-items: center; cursor: pointer; }
+  .icon-btn svg { width: 1.1rem; height: 1.1rem; }
+  .btn { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 2.75rem; padding: 0 1.4rem; border-radius: 999px; font: 600 0.9375rem/1 inherit; text-decoration: none; border: 1px solid var(--line); background: var(--surface); color: var(--ink); white-space: nowrap; transition: background-color .15s, transform .15s; }
+  .btn svg { width: 1rem; height: 1rem; }
+  .btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .btn.primary:hover { background: var(--blue-hover); }
+  .btn.big { min-height: 3.25rem; padding: 0 1.75rem; }
 
-  /* первый экран: аннотированный транскрипт */
-  .hero { padding-block: 4.5rem 3.5rem; display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 3.5rem; align-items: start; }
-  .hero .lede { margin-top: 1.25rem; max-width: 34rem; font-size: var(--s-body); color: var(--ink-2); }
-  .hero .actions { display: flex; gap: 0.75rem; margin-top: 2rem; flex-wrap: wrap; }
+  /* свечения */
+  .glow { position: absolute; border-radius: 50%; filter: blur(60px); pointer-events: none; z-index: 0; }
 
-  .sheet { background: var(--panel); border: 1px solid var(--line); border-radius: 0.75rem; overflow: hidden; }
-  .sheet-head { display: flex; justify-content: space-between; gap: 1rem; padding: 0.9rem 1.25rem; border-bottom: 1px solid var(--line); font-size: var(--s-meta); color: var(--ink-2); }
-  .sheet-head b { color: var(--ink); font-weight: 600; }
-  .turn { display: grid; grid-template-columns: 2.25rem minmax(0, 1fr) minmax(0, 13rem); gap: 0.75rem; padding: 0.8rem 1.25rem; border-bottom: 1px solid var(--line); align-items: start; }
-  .turn:last-child { border-bottom: 0; }
-  .turn .n { font-size: var(--s-meta); color: var(--ink-2); padding-top: 0.1rem; }
-  .turn .who { font-size: var(--s-meta); color: var(--ink-2); display: block; }
-  .turn .say { display: inline; }
-  .turn mark { background: var(--marker); color: inherit; padding: 0.05em 0.2em; border-radius: 0.2em; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
-  .turn mark.bad { background: var(--signal-wash); }
-  .note { font-size: var(--s-meta); line-height: 1.4; border-left: 2px solid var(--green-bright); padding-left: 0.6rem; }
-  .note.bad { border-left-color: var(--signal); }
-  .note b { display: block; font-weight: 600; }
-  .note .ok { color: var(--green); } .note .no { color: var(--signal); }
-  .sheet-foot { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; padding: 0.9rem 1.25rem; background: var(--paper); border-top: 1px solid var(--line); }
-  .sheet-foot .total { font-size: var(--s-section); font-weight: 700; }
+  /* hero */
+  .hero { position: relative; padding-block: 4rem 4.5rem; }
+  .hero .wrap { position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); gap: 3rem; align-items: center; }
+  .pill { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem; color: var(--ink-2); border: 1px solid var(--line); background: var(--surface); padding: 0.3rem 0.8rem; border-radius: 999px; }
+  .pill i { width: 0.4rem; height: 0.4rem; border-radius: 50%; background: var(--blue); }
+  .hero h1 { margin-top: 1.5rem; font-size: clamp(2.5rem, 4.6vw, 4.3rem); line-height: 0.98; letter-spacing: -0.05em; overflow-wrap: anywhere; }
+  .hero .lede { margin-top: 1.75rem; font-size: 1.1875rem; line-height: 1.6; color: var(--ink-2); max-width: 34rem; }
+  .hero .actions { display: flex; gap: 0.75rem; margin-top: 2.25rem; flex-wrap: wrap; }
+  .facts { display: flex; flex-wrap: wrap; gap: 0.6rem 1.5rem; margin-top: 2rem; font-size: 0.8125rem; color: var(--ink-2); }
+  .facts span { display: inline-flex; align-items: center; gap: 0.4rem; }
+  .facts svg { width: 1rem; height: 1rem; color: var(--blue); }
 
-  /* сводка по набору */
-  .summary { border-block: 1px solid var(--line); padding-block: 1.5rem; }
-  .summary dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.5rem; margin: 0; }
-  .summary dt { font-size: var(--s-meta); color: var(--ink-2); }
-  .summary dd { margin: 0.25rem 0 0; font-size: var(--s-section); font-weight: 700; }
-  .summary p { margin-top: 1rem; }
+  /* «устройство»: карточка оценки с всплывающими чипами */
+  .device-wrap { position: relative; display: grid; place-items: center; min-height: 32rem; }
+  .device { width: min(23rem, 100%); background: #0b1120; color: #eef2fb; border-radius: 2.2rem; padding: 1.1rem; border: 6px solid #1a2440;
+    box-shadow: 0 40px 80px rgba(10,45,182,.25), 0 0 0 1px rgba(255,255,255,.04) inset; transform: rotate(-5deg); }
+  .device .top { display: flex; justify-content: space-between; font-size: 0.6875rem; color: #8b97b0; padding: 0.2rem 0.4rem 0.8rem; }
+  .device .hello { padding: 0 0.4rem; font-weight: 600; font-size: 1rem; }
+  .device .hello small { display: block; font-weight: 400; font-size: 0.6875rem; color: #8b97b0; }
+  .device .score { margin: 0.8rem 0; padding: 1rem; border-radius: 1.1rem; background: linear-gradient(135deg, #0a6cff, #0a2db6); }
+  .device .score b { font-size: 2.4rem; letter-spacing: -0.04em; line-height: 1; display: block; }
+  .device .score span { font-size: 0.75rem; opacity: .85; }
+  .device .row { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; padding: 0.6rem 0.7rem; border-radius: 0.8rem; background: #111a2e; margin-top: 0.4rem; font-size: 0.75rem; }
+  .device .row em { font-style: normal; font-weight: 600; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.6875rem; }
+  .device .row em.y { background: rgba(60,207,127,.15); color: #3ccf7f; }
+  .device .row em.n { background: rgba(255,107,112,.15); color: #ff8a8e; }
+  .device .row em.na { background: rgba(154,166,189,.15); color: #b6c0d4; }
+  .device .row em.s { background: rgba(47,132,255,.18); color: #8fb6ff; }
+  .chip { position: absolute; display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem; font-weight: 500; color: var(--ink);
+    background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(10px); border: 1px solid var(--line); padding: 0.55rem 0.9rem; border-radius: 999px; box-shadow: var(--shadow); }
+  .chip svg { width: 1rem; height: 1rem; color: var(--blue); flex: none; }
+  .chip.c1 { top: 12%; left: -2%; } .chip.c2 { top: 46%; right: -4%; } .chip.c3 { bottom: 10%; left: 4%; }
+  .chip q { quotes: "«" "»"; color: var(--ink-2); }
 
-  section { padding-block: 4rem; }
-  section > .wrap > h2 + p { margin-top: 0.75rem; max-width: 40rem; color: var(--ink-2); }
+  /* бегущая строка */
+  .marquee { border-block: 1px solid var(--line); background: var(--surface); overflow: hidden; }
+  .marquee .track { display: flex; width: max-content; gap: 2.5rem; padding: 1.2rem 0; animation: run 40s linear infinite; }
+  .marquee span { display: inline-flex; align-items: center; gap: 0.6rem; font-size: 1.25rem; font-weight: 500; color: var(--ink-2); white-space: nowrap; }
+  .marquee span::after { content: ""; width: 0.3rem; height: 0.3rem; border-radius: 50%; background: var(--ink-3); margin-left: 2.5rem; }
+  .marquee svg { width: 1.6rem; height: 1.6rem; padding: 0.3rem; border-radius: 50%; background: var(--blue-soft); color: var(--blue); }
+  @keyframes run { to { transform: translateX(-50%); } }
+  @media (prefers-reduced-motion: reduce) { .marquee .track { animation: none; } }
 
-  /* процесс — настоящая последовательность */
-  .steps { list-style: none; margin: 2.25rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 2px solid var(--ink); }
-  .steps li { padding: 1.25rem 1.5rem 0 0; counter-increment: s; }
-  .steps li::before { content: counter(s); display: block; font-weight: 700; color: var(--green); margin-bottom: 0.5rem; }
-  .steps p { color: var(--ink-2); margin-top: 0.35rem; max-width: 30ch; }
+  section { position: relative; padding-block: 6rem; }
+  .big-h { font-size: clamp(2.4rem, 4.8vw, 4rem); line-height: 1.02; letter-spacing: -0.045em; }
 
-  /* возможности — два контура */
-  .contours { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3rem; margin-top: 2.25rem; }
-  .contours h3 { padding-bottom: 0.6rem; border-bottom: 1px solid var(--line); }
-  .contours dl { margin: 0; }
-  .contours dt { font-weight: 600; margin-top: 1.1rem; }
-  .contours dd { margin: 0.2rem 0 0; color: var(--ink-2); max-width: 60ch; }
+  /* блоки «контуров» */
+  .flow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4rem; align-items: center; margin-top: 4.5rem; }
+  .flow + .flow { margin-top: 6rem; }
+  .flow h3 { font-size: clamp(1.8rem, 3vw, 2.6rem); line-height: 1.08; letter-spacing: -0.035em; font-weight: 650; margin-top: 0.8rem; }
+  .flow p { margin-top: 1.1rem; font-size: 1.125rem; color: var(--ink-2); max-width: 32rem; }
+  .checks { list-style: none; padding: 0; margin: 1.5rem 0 0; display: grid; gap: 0.75rem; }
+  .checks li { display: flex; gap: 0.75rem; align-items: center; font-weight: 500; }
+  .checks svg { width: 1.3rem; height: 1.3rem; flex: none; color: #fff; background: var(--blue); border-radius: 50%; padding: 0.25rem; }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.25rem; }
+  .msg { display: grid; grid-template-columns: 2rem 1fr; gap: 0.6rem; padding: 0.7rem 0.8rem; border-radius: 0.9rem; font-size: 0.9375rem; }
+  .msg + .msg { margin-top: 0.4rem; }
+  .msg .n { color: var(--ink-3); font-size: 0.8125rem; }
+  .msg .who { display: block; font-size: 0.75rem; color: var(--ink-2); }
+  .msg.op { background: var(--blue-soft); }
+  .msg.hit { outline: 2px solid var(--blue); }
+  .verdict { display: flex; justify-content: space-between; gap: 1rem; padding: 0.8rem 0.9rem; border-radius: 0.9rem; background: var(--surface-2); margin-top: 0.8rem; font-size: 0.875rem; }
+  .verdict b { font-weight: 600; }
+  .tag { font-size: 0.75rem; font-weight: 600; padding: 0.15rem 0.6rem; border-radius: 999px; white-space: nowrap; }
+  .tag.y { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
+  .tag.n { background: color-mix(in srgb, var(--bad) 14%, transparent); color: var(--bad); }
+  .appeal-line { display: grid; grid-template-columns: auto 1fr auto; gap: 0.8rem; align-items: center; padding: 0.8rem 0.9rem; border-radius: 0.9rem; border: 1px solid var(--line); font-size: 0.875rem; }
+  .appeal-line + .appeal-line { margin-top: 0.5rem; }
+  .appeal-line .dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--violet); }
+  .appeal-line.done .dot { background: var(--ok); }
+
+  /* возможности */
+  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-top: 3rem; }
+  .feature { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.6rem; }
+  .feature.wide { grid-column: span 2; background: linear-gradient(135deg, var(--blue), var(--blue-deep)); color: #fff; border-color: transparent; }
+  .feature.wide p { color: rgba(255,255,255,.82); }
+  .feature .ico { width: 2.75rem; height: 2.75rem; border-radius: 0.9rem; display: grid; place-items: center; background: var(--blue-soft); color: var(--blue); margin-bottom: 1.1rem; }
+  .feature.wide .ico { background: rgba(255,255,255,.16); color: #fff; }
+  .feature .ico svg { width: 1.35rem; height: 1.35rem; }
+  .feature h3 { font-size: 1.1875rem; font-weight: 600; letter-spacing: -0.01em; }
+  .feature p { margin-top: 0.5rem; color: var(--ink-2); }
+
+  /* статистика */
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin-top: 3rem; }
+  .stat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.5rem; }
+  .stat b { display: block; font-size: 2.5rem; font-weight: 650; letter-spacing: -0.04em; line-height: 1.05; }
+  .stat span { color: var(--ink-2); font-size: 0.875rem; }
 
   /* расчёт */
-  .calc { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 3rem; margin-top: 2.25rem; align-items: start; }
-  .calc ol { margin: 0; padding-left: 1.25rem; }
-  .calc li { margin-bottom: 0.75rem; max-width: 60ch; }
+  .calc { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 3rem; margin-top: 3rem; align-items: start; }
+  .rules { list-style: none; padding: 0; margin: 0; counter-reset: r; }
+  .rules li { counter-increment: r; display: grid; grid-template-columns: 2.5rem 1fr; gap: 0.5rem; padding: 1rem 0; border-bottom: 1px solid var(--line); }
+  .rules li::before { content: counter(r, decimal-leading-zero); color: var(--blue); font-weight: 600; }
   .ledger { width: 100%; border-collapse: collapse; }
-  .ledger td { padding: 0.55rem 0; border-bottom: 1px solid var(--line); }
-  .ledger td:last-child { text-align: right; }
-  .ledger tr.sum td { border-bottom: 0; border-top: 2px solid var(--ink); font-weight: 700; }
-  .ledger .na { color: var(--ink-2); }
-  .ledger .no { color: var(--signal); }
+  .ledger td { padding: 0.75rem 0; border-bottom: 1px solid var(--line); }
+  .ledger td:last-child { text-align: right; font-weight: 500; }
+  .ledger .no td { color: var(--bad); }
+  .ledger .na td { color: var(--ink-3); }
+  .ledger .sum td { border-bottom: 0; font-size: 1.5rem; font-weight: 650; padding-top: 1rem; letter-spacing: -0.02em; }
 
   /* модели */
-  .table-wrap { overflow-x: auto; margin-top: 2rem; }
-  table.models { width: 100%; border-collapse: collapse; min-width: 36rem; }
-  table.models th, table.models td { text-align: left; padding: 0.8rem 1rem 0.8rem 0; border-bottom: 1px solid var(--line); vertical-align: top; }
-  table.models th { font-size: var(--s-meta); font-weight: 600; color: var(--ink-2); }
+  .models { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: 3rem; }
+  .model h3 { font-size: 1.25rem; font-weight: 600; margin-top: 0.4rem; }
+  .model dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.5rem 1rem; margin: 1.1rem 0 0; font-size: 0.9375rem; }
+  .model dt { color: var(--ink-2); }
+  .model dd { margin: 0; }
 
-  .closing { display: flex; justify-content: space-between; align-items: center; gap: 2rem; flex-wrap: wrap; border-top: 2px solid var(--ink); padding-top: 2rem; }
-  footer { padding-block: 2rem calc(2.5rem + env(safe-area-inset-bottom, 0px)); }
+  /* вопросы */
+  .faq { margin-top: 3rem; border-top: 1px solid var(--line); }
+  .faq details { border-bottom: 1px solid var(--line); }
+  .faq summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; gap: 1rem; padding: 1.4rem 0; font-size: 1.1875rem; font-weight: 500; }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::after { content: "+"; color: var(--blue); font-size: 1.5rem; line-height: 1; transition: transform .2s; }
+  .faq details[open] summary::after { transform: rotate(45deg); }
+  .faq p { padding: 0 0 1.4rem; color: var(--ink-2); max-width: 46rem; }
 
-  @media (max-width: 960px) {
-    .hero, .calc, .contours { grid-template-columns: 1fr; }
-    .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 1.5rem; }
-    .summary dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cta { position: relative; overflow: hidden; border-radius: 2rem; padding: 4rem 3rem; background: linear-gradient(135deg, var(--blue), var(--blue-deep)); color: #fff; display: flex; justify-content: space-between; align-items: center; gap: 2rem; flex-wrap: wrap; }
+  .cta h2 { font-size: clamp(2rem, 4vw, 3.4rem); letter-spacing: -0.045em; line-height: 1.02; }
+  .cta p { margin-top: 0.9rem; color: rgba(255,255,255,.8); }
+  .cta .btn { background: #fff; color: var(--blue-deep); border-color: #fff; }
+  footer { padding-block: 3rem calc(3rem + env(safe-area-inset-bottom, 0px)); color: var(--ink-2); font-size: 0.875rem; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+
+  @media (max-width: 980px) {
+    .hero .wrap, .flow, .calc { grid-template-columns: 1fr; }
+    .flow.rev > :first-child { order: 0; }
+    .grid { grid-template-columns: 1fr 1fr; }
+    .feature.wide { grid-column: span 2; }
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .nav nav { display: none; }
   }
-  @media (max-width: 560px) {
-    :root { --s-display: 2.25rem; }
+  @media (max-width: 600px) {
     .wrap { padding-inline: 1rem; }
-    header nav { display: none; }
-    .hero { padding-block: 2.5rem; gap: 2rem; }
-    .turn { grid-template-columns: 1.75rem minmax(0, 1fr); }
-    .turn .note { grid-column: 2; }
-    .steps { grid-template-columns: 1fr; }
-  }
-  @media (prefers-reduced-motion: no-preference) {
-    .turn mark { transition: background-color .4s; }
+    .grid, .models { grid-template-columns: 1fr; }
+    .feature.wide { grid-column: auto; }
+    .device-wrap { min-height: 28rem; }
+    .device { width: min(19rem, 86vw); transform: rotate(-4deg); }
+    .chip.c1 { left: 0; } .chip.c2 { right: 0; }
+    .cta { padding: 2.5rem 1.5rem; }
+    section { padding-block: 4rem; }
+    .nav { gap: 0.75rem; }
+    .nav .btn span { display: none; }
   }
 </style>
 </head>
 <body>
 
-<header class="top">
-  <div class="wrap">
+<div class="nav-shell">
+  <header class="nav">
     <a class="brand" href="#">
-      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#087a43"/><path d="M9 16.5l4.5 4.5L23 11.5" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#0a6cff"/><path d="M9 16.5l4.5 4.5L23 11.5" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
       CQA
     </a>
     <nav aria-label="Разделы">
-      <a href="#process">Как проходит проверка</a>
-      <a href="#features">Что умеет</a>
-      <a href="#calc">Расчёт итога</a>
-      <a href="#models">Модели</a>
+      <a href="#how">Как это работает</a>
+      <a href="#features">Возможности</a>
+      <a href="#calc">Расчёт</a>
+      <a href="#faq">Вопросы</a>
     </nav>
-    <a class="btn primary" data-app-link href="app.html">Открыть приложение</a>
-  </div>
-</header>
+    <button class="icon-btn" id="theme" type="button" aria-label="Переключить тему">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    </button>
+    <a class="btn primary" data-app-link href="app.html"><span>Открыть приложение</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M8 7h9v9"/></svg></a>
+  </header>
+</div>
 
 <main>
-  <div class="wrap hero">
-    <div>
-      <h1>Оценка работы оператора, где у каждого балла есть реплика-основание</h1>
-      <p class="lede">CQA проверяет чаты и звонки на русском, казахском и английском по вашему чек-листу. Для каждого критерия — ответ, объяснение и ссылка на сообщение в диалоге. Спорную оценку оператор оспаривает, проверяющий пересматривает, итог пересчитывается.</p>
-      <div class="actions">
-        <a class="btn primary" data-app-link href="app.html">Открыть приложение</a>
-        <a class="btn" href="#calc">Как считается итог</a>
-      </div>
-    </div>
-
-    <figure class="sheet" style="margin:0" aria-label="Фрагмент оценённого диалога">
-      <div class="sheet-head"><span><b>p1-ru-001</b>, чат, русский</span><span>пример из набора DEV</span></div>
-      <div class="turn">
-        <span class="n">#1</span>
-        <p><span class="who">Клиент</span><span class="say">Где посмотреть мой тариф? В приложении не нахожу.</span></p>
-        <span></span>
-      </div>
-      <div class="turn">
-        <span class="n">#5</span>
-        <p><span class="who">Клиент</span><span class="say">Я сейчас <mark>с ноутбука</mark>, отчёт качать не хочу.</span></p>
-        <p class="note"><b>02 Выявление потребности</b><span class="ok">N/A</span>: деталь известна, уточнять нечего</p>
-      </div>
-      <div class="turn">
-        <span class="n">#10</span>
-        <p><span class="who">Оператор</span><span class="say"><mark>Здравствуйте! Меня зовут Алина.</mark> В веб-версии откройте вкладку «Кабинет». Название тарифа будет под вашим ФИО.</span></p>
-        <p class="note"><b>01 Установление контакта</b><span class="ok">Да</span>: поздоровалась и представилась в первом ответе</p>
-      </div>
-      <div class="turn">
-        <span class="n">#11</span>
-        <p><span class="who">Клиент</span><span class="say">Нашла, спасибо.</span></p>
-        <p class="note"><b>04 Консультация</b><span class="ok">20 из 20</span>: вопрос закрыт</p>
-      </div>
-      <div class="turn">
-        <span class="n">#12</span>
-        <p><span class="who">Оператор</span><span class="say"><mark class="bad">Пожалуйста. Хорошего вечера!</mark></span></p>
-        <p class="note bad"><b>07 Завершение</b><span class="no">Нет</span>: попрощалась, но без итога и предложения помощи</p>
-      </div>
-      <div class="sheet-foot"><span class="meta">Веса двух критериев с N/A перераспределены</span><span class="total">92,31 из 100</span></div>
-    </figure>
-  </div>
-
-  <div class="summary" id="stats-block" hidden>
+  <div class="hero">
+    <div class="glow" style="width:34rem;height:34rem;right:-6rem;top:-4rem;background:color-mix(in srgb,var(--blue) 22%,transparent)"></div>
     <div class="wrap">
-      <dl id="stats"></dl>
-      <p class="meta" id="stats-note"></p>
+      <div>
+        <span class="pill"><i></i>ИИ-контроль качества для поддержки клиентов</span>
+        <h1 class="two-tone">Каждый диалог.<br><span class="blue">С доказательством.</span></h1>
+        <p class="lede">CQA оценивает работу операторов в чатах и звонках по вашему чек-листу. У каждого балла — объяснение и реплика, на которой он основан. Спорную оценку можно оспорить, итог пересчитается.</p>
+        <div class="actions">
+          <a class="btn primary big" data-app-link href="app.html">Открыть приложение
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+          <a class="btn big" href="#calc">Как считается итог</a>
+        </div>
+        <div class="facts">
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 5h8M8 3v2M5 9c1 3 4 5 7 6M11 9c-1 3-4 5-7 6M13 21l4-9 4 9M14.5 18h5"/></svg>Қазақша, русский, English</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Чаты и звонки</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Локальная модель — данные не уходят наружу</span>
+        </div>
+      </div>
+
+      <div class="device-wrap" aria-label="Пример карточки оценки">
+        <div class="device">
+          <div class="top"><span>p1-ru-001</span><span>CQA</span></div>
+          <div class="hello">Оценка диалога<small>чат, русский, 12 реплик</small></div>
+          <div class="score"><b>92,31</b><span>из 100, веса двух N/A перераспределены</span></div>
+          <div class="row">01 Установление контакта <em class="y">Да</em></div>
+          <div class="row">02 Выявление потребности <em class="na">N/A</em></div>
+          <div class="row">04 Консультация <em class="s">20 из 20</em></div>
+          <div class="row">06 Управление диалогом <em class="s">10 из 10</em></div>
+          <div class="row">07 Завершение <em class="n">Нет</em></div>
+        </div>
+        <div class="chip c1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>#10 <q>Здравствуйте! Меня зовут Алина.</q></div>
+        <div class="chip c2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>Оценка за 40 секунд</div>
+        <div class="chip c3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Апелляция принята, итог пересчитан</div>
+      </div>
     </div>
   </div>
 
-  <section id="process">
-    <div class="wrap">
-      <h2>Как проходит проверка</h2>
-      <p>Модель отвечает только на вопросы чек-листа. Баллы, веса и итог считает код по правилам чек-листа, поэтому результат можно проверить и воспроизвести.</p>
-      <ol class="steps">
-        <li><h3>Загрузка</h3><p>Набор по group_id из API, файл JSON или вставленный текст. Реплики бота и системные события — контекст.</p></li>
-        <li><h3>Промпт из чек-листа</h3><p>Критерии, шкалы и условия N/A берутся из текущей версии. Новый критерий работает без правки кода.</p></li>
-        <li><h3>Ответ модели</h3><p>По каждому критерию — допустимое значение, объяснение и номера реплик. Ответ проверяется по схеме.</p></li>
-        <li><h3>Итог и пересмотр</h3><p>Код считает баллы. Оценку можно оспорить, решение проверяющего пересчитывает итог.</p></li>
-      </ol>
+  <div class="marquee" aria-hidden="true">
+    <div class="track" id="track">
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>Установление контакта</span>
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Выявление потребности</span>
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Идентификация</span>
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19V5M4 19h16M8 15l4-4 3 3 5-6"/></svg>Консультация</span>
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg>Эмпатия</span>
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Управление диалогом</span>
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>Завершение</span>
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>Грубые ошибки</span>
     </div>
-  </section>
+  </div>
 
-  <section id="features" style="background:var(--panel);border-block:1px solid var(--line)">
-    <div class="wrap">
-      <h2>Что умеет</h2>
-      <p>Два рабочих контура из задания: оценка и работа с результатом.</p>
-      <div class="contours">
+  <section id="how">
+    <div class="glow" style="width:28rem;height:28rem;left:-10rem;top:30%;background:color-mix(in srgb,var(--cyan) 14%,transparent)"></div>
+    <div class="wrap" style="position:relative">
+      <h2 class="big-h two-tone">Два контура.<br><span class="dim">Одна система.</span></h2>
+
+      <div class="flow">
         <div>
-          <h3>Оценка</h3>
-          <dl>
-            <dt>Редактор чек-листа</dt><dd>Критерии, секции, веса, тип ответа, шкалы и правила N/A. Каждое сохранение — новая версия, старые оценки хранят свою.</dd>
-            <dt>Пакетная проверка</dt><dd>Весь набор ставится в очередь. Очередь сохраняется и продолжается после перезапуска сервера.</dd>
-            <dt>Три языка и звонки</dt><dd>Один чек-лист для русского, казахского и английского. Звонки оцениваются по транскрипту, запись можно прослушать.</dd>
-            <dt>Прозрачность</dt><dd>Для каждой оценки сохраняются промпт и ответ модели. Результаты выгружаются в CSV и JSON.</dd>
-          </dl>
+          <span class="label">Оценка</span>
+          <h3>Балл, который можно проверить.</h3>
+          <p>Промпт собирается из текущей версии чек-листа. Модель выбирает ответ по каждому критерию и указывает реплики, а баллы, веса и итог считает код.</p>
+          <ul class="checks">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Набор по group_id, файл или вставленный текст</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Пакетная проверка, очередь переживает перезапуск</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Промпт и ответ модели сохраняются для каждой оценки</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <div class="msg"><span class="n">#5</span><span><span class="who">Клиент</span>Я сейчас с ноутбука, отчёт качать не хочу.</span></div>
+          <div class="msg op hit"><span class="n">#10</span><span><span class="who">Оператор</span>Здравствуйте! Меня зовут Алина. В веб-версии откройте вкладку «Кабинет».</span></div>
+          <div class="msg"><span class="n">#11</span><span><span class="who">Клиент</span>Нашла, спасибо.</span></div>
+          <div class="verdict"><span><b>01 Установление контакта</b><br><span class="muted">Поздоровалась и представилась в первом ответе, #10</span></span><span class="tag y">Да</span></div>
+        </div>
+      </div>
+
+      <div class="flow">
+        <div class="panel">
+          <div class="appeal-line"><span class="dot"></span><span><b>06 Управление диалогом</b><br><span class="muted">«Ответы были ясными, сбоя не было (#12)»</span></span><span class="tag n">7 из 10</span></div>
+          <div class="appeal-line done"><span class="dot"></span><span><b>Решение проверяющего</b><br><span class="muted">Оценка изменена: сбоя нет</span></span><span class="tag y">10 из 10</span></div>
+          <div class="verdict"><span><b>Итог диалога</b><br><span class="muted">исходная оценка ИИ сохранена</span></span><span style="font-weight:650;font-size:1.25rem">85,38 → 92,31</span></div>
         </div>
         <div>
-          <h3>Работа с результатом</h3>
-          <dl>
-            <dt>Переход к реплике</dt><dd>Клик по обоснованию прокручивает транскрипт к сообщению. У звонка запись перематывается к этому месту.</dd>
-            <dt>Проверенный участок</dt><dd>Если действие пропущено, видно, какие реплики проверялись. Для N/A — какое условие выполнено.</dd>
-            <dt>Апелляция</dt><dd>Оператор выбирает критерий и пишет, с чем не согласен. Проверяющий видит оценку, обоснование и фрагмент диалога.</dd>
-            <dt>Решение и пересчёт</dt><dd>Проверяющий подтверждает или меняет оценку с причиной. Исходная оценка ИИ остаётся в карточке.</dd>
-          </dl>
+          <span class="label">Работа с результатом</span>
+          <h3>Спорная оценка — не тупик.</h3>
+          <p>Оператор оспаривает критерий с комментарием. Проверяющий видит оценку, обоснование ИИ и фрагмент диалога, подтверждает или меняет её с причиной.</p>
+          <ul class="checks">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Переход к реплике и к моменту записи звонка</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Проверенный участок для пропущенного действия</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Исходная оценка, решение и финальный итог в карточке</li>
+          </ul>
         </div>
       </div>
     </div>
   </section>
 
-  <section id="calc">
+  <section id="features" style="padding-top:0">
     <div class="wrap">
-      <h2>Расчёт итога</h2>
-      <p>По правилам выданного чек-листа. Расчёт покрыт автотестами.</p>
+      <h2 class="big-h two-tone">Возможности<span class="dim">.</span></h2>
+      <div class="grid">
+        <div class="feature wide">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg></div>
+          <h3>Чек-лист настраивается без кода</h3>
+          <p>Критерии, секции, веса, тип ответа, шкалы и правила N/A. Каждое сохранение — новая версия, старые оценки хранят свою. Заменённый критерий сразу попадает в промпт.</p>
+        </div>
+        <div class="feature">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3zM3 19a2 2 0 0 0 2 2h1v-6H3z"/></svg></div>
+          <h3>Звонки и запись</h3>
+          <p>Кнопка у каждой реплики перематывает запись к нужному месту.</p>
+        </div>
+        <div class="feature">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5M4 19h16M8 15l4-4 3 3 5-6"/></svg></div>
+          <h3>Точность в цифрах</h3>
+          <p>Эталонная разметка 26 диалогов и 16 пограничных случаев, отчёт по каждому критерию.</p>
+        </div>
+        <div class="feature">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div>
+          <h3>Грубые ошибки отдельно</h3>
+          <p>Оскорбление, услуга в обход компании, раскрытие данных — отдельная отметка.</p>
+        </div>
+        <div class="feature">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/></svg></div>
+          <h3>Экспорт и встраивание</h3>
+          <p>CSV и JSON. Интерфейс — веб-компонент для Dynamics 365.</p>
+        </div>
+      </div>
+
+      <div class="stats" id="stats" hidden></div>
+      <p class="muted" id="stats-note" style="margin-top:1rem;font-size:.875rem"></p>
+    </div>
+  </section>
+
+  <section id="calc" style="padding-top:0">
+    <div class="wrap">
+      <h2 class="big-h two-tone">Расчёт итога.<br><span class="dim">По правилам чек-листа.</span></h2>
       <div class="calc">
-        <ol>
+        <ol class="rules">
           <li>«Да» даёт полный вес критерия, «Нет» — ноль.</li>
           <li>Шкала пересчитывается пропорционально весу: верхняя ступень даёт полный вес.</li>
           <li>Критерий с N/A исключается, его вес делится между применимыми, максимум остаётся 100.</li>
           <li>Итог округляется до двух знаков. Если применимых критериев нет, итог не считается.</li>
           <li>Грубая ошибка отмечается отдельно и не смешивается с баллами.</li>
         </ol>
-        <table class="ledger" aria-label="Пример расчёта для диалога p1-ru-001">
-          <tbody>
-            <tr><td>01, 04, 05, 06 — «Да» и верхние ступени</td><td>60 из 60</td></tr>
-            <tr class="no"><td>07 Завершение — «Нет»</td><td>0 из 5</td></tr>
-            <tr class="na"><td>02 и 03 — N/A, их вес 35 исключён</td><td>—</td></tr>
-            <tr><td>Применимый вес</td><td>65</td></tr>
-            <tr class="sum"><td>Итог: 60 ÷ 65 × 100</td><td>92,31</td></tr>
-          </tbody>
-        </table>
+        <div class="panel">
+          <table class="ledger" aria-label="Пример расчёта для диалога p1-ru-001">
+            <tbody>
+              <tr><td>01, 04, 05, 06 — «Да» и верхние ступени</td><td>60 из 60</td></tr>
+              <tr class="no"><td>07 Завершение — «Нет»</td><td>0 из 5</td></tr>
+              <tr class="na"><td>02 и 03 — N/A, их вес 35 исключён</td><td>—</td></tr>
+              <tr><td>Применимый вес</td><td>65</td></tr>
+              <tr class="sum"><td>60 ÷ 65 × 100</td><td>92,31</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </section>
 
   <section id="models" style="padding-top:0">
     <div class="wrap">
-      <h2>Модели</h2>
-      <p>Интерфейс — веб-компонент на HTML, CSS и JavaScript без сборки, его можно встроить в Dynamics 365. Сервер на Node.js, данные в JSON-файлах.</p>
-      <div class="table-wrap">
-        <table class="models">
-          <thead><tr><th scope="col">Режим</th><th scope="col">Модель</th><th scope="col">Стоимость оценки</th><th scope="col">Когда выбирать</th></tr></thead>
-          <tbody>
-            <tr><td>Локальный</td><td>Qwen 2.5 7B через Ollama</td><td>бесплатно</td><td>данные не покидают компьютер; около минуты на диалог; критерии оцениваются по одному</td></tr>
-            <tr><td>Облачный</td><td>Claude Opus 5.5</td><td>около $0,05–0,10</td><td>выше точность, особенно на казахском; стоимость считается по фактическим токенам</td></tr>
-          </tbody>
-        </table>
+      <h2 class="big-h two-tone">Две модели.<br><span class="dim">Один интерфейс.</span></h2>
+      <div class="models">
+        <div class="panel model">
+          <span class="label">Локально</span>
+          <h3>Qwen 2.5 7B через Ollama</h3>
+          <dl><dt>Стоимость</dt><dd>бесплатно</dd><dt>Скорость</dt><dd>около минуты на диалог</dd><dt>Данные</dt><dd>не покидают компьютер</dd><dt>Режим</dt><dd>по одному критерию за вызов</dd></dl>
+        </div>
+        <div class="panel model">
+          <span class="label">В облаке</span>
+          <h3>Claude Opus 5.5</h3>
+          <dl><dt>Стоимость</dt><dd>около $0,05–0,10 за диалог</dd><dt>Скорость</dt><dd>десятки секунд</dd><dt>Точность</dt><dd>выше, особенно на казахском</dd><dt>Режим</dt><dd>все критерии одним вызовом</dd></dl>
+        </div>
       </div>
-      <p class="meta" id="model-now" style="margin-top:1rem"></p>
+      <p class="muted" id="model-now" style="margin-top:1rem;font-size:.875rem"></p>
+    </div>
+  </section>
+
+  <section id="faq" style="padding-top:0">
+    <div class="wrap">
+      <h2 class="big-h">Коротко о главном</h2>
+      <div class="faq">
+        <details><summary>Чем «Нет» отличается от N/A?</summary><p>«Нет» — действие было нужно, но оператор его пропустил или выполнил неверно. N/A — критерий неприменим по своему условию, например общий вопрос о тарифе не требует идентификации. Вес критерия с N/A делится между остальными.</p></details>
+        <details><summary>Откуда модель знает, что оценивать?</summary><p>Промпт каждый раз собирается из текущей версии чек-листа: формулировки, шкалы, условия N/A и уточнения. Поменяли критерий в настройках — следующая оценка идёт уже по нему. В карточке оценки видны промпт и ответ модели.</p></details>
+        <details><summary>Можно ли доверять баллам?</summary><p>Модель только выбирает ответ и указывает реплики, арифметику делает код. Точность измеряется командой <code>pnpm eval</code> на эталонной разметке, отчёт показывает совпадение по каждому критерию и все расхождения.</p></details>
+        <details><summary>Где хранятся данные?</summary><p>На сервере сервиса, в JSON-файлах. С локальной моделью транскрипты не покидают компьютер. Ключ облачной модели хранится только на сервере и не попадает в браузер.</p></details>
+        <details><summary>Как встроить в Dynamics 365?</summary><p>Интерфейс — один веб-компонент <code>&lt;cqa-app&gt;</code> из двух файлов без сборки. Его можно подключить как HTML web resource и указать адрес сервиса в атрибуте <code>api-base</code>.</p></details>
+      </div>
     </div>
   </section>
 
   <div class="wrap">
-    <div class="closing">
-      <div><h2>Откройте набор DEV</h2><p class="meta" style="margin-top:.4rem">65 диалогов: чаты на трёх языках и реальные звонки.</p></div>
-      <a class="btn primary" data-app-link href="app.html">Открыть приложение</a>
+    <div class="cta">
+      <div><h2>Проверьте свой набор диалогов.</h2><p>Набор DEV: 65 диалогов — чаты на трёх языках и реальные звонки.</p></div>
+      <a class="btn big" data-app-link href="app.html">Открыть приложение</a>
     </div>
   </div>
 </main>
 
 <footer>
-  <div class="wrap meta">CQA — прототип для хакатона Freedom Broker. Не является официальным продуктом компании.</div>
+  <div class="wrap"><span>CQA — прототип для хакатона Freedom Broker.</span><span>Не является официальным продуктом компании.</span></div>
 </footer>
 
 <script>
-  // Адрес приложения и API: ?app=<url>&api=<url> или window.CQA_APP_URL / window.CQA_API_BASE
   (function () {
+    // тема: системная по умолчанию, переключатель запоминается
+    var root = document.documentElement;
+    try { var saved = localStorage.getItem('cqa.theme'); if (saved) root.dataset.theme = saved; } catch (e) {}
+    document.getElementById('theme').addEventListener('click', function () {
+      var dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+      root.dataset.theme = dark ? 'light' : 'dark';
+      try { localStorage.setItem('cqa.theme', root.dataset.theme); } catch (e) {}
+    });
+    // бегущая строка: дублируем содержимое для бесшовной прокрутки
+    var tr = document.getElementById('track'); tr.innerHTML += tr.innerHTML;
+
+    // адрес приложения и API: ?app=<url>&api=<url> или window.CQA_APP_URL / window.CQA_API_BASE
     var q = new URLSearchParams(location.search);
     var app = q.get('app') || window.CQA_APP_URL || 'app.html';
     var api = (q.get('api') || window.CQA_API_BASE || '').replace(/\/$/, '');
@@ -321,13 +463,14 @@
       var gross = ev.filter(function (c) { return c.last_evaluation.gross; }).length;
       var langs = {}; convs.forEach(function (c) { langs[c.language] = (langs[c.language] || 0) + 1; });
       var calls = convs.filter(function (c) { return c.channel === 'voice call'; }).length;
-      var items = [['Диалогов в наборе', convs.length], ['Оценено', ev.length], ['Средний итог', avg == null ? '—' : nf.format(avg)], ['С грубой ошибкой', gross]];
-      document.getElementById('stats').innerHTML = items.map(function (i) { return '<div><dt>' + i[0] + '</dt><dd>' + i[1] + '</dd></div>'; }).join('');
+      var items = [[convs.length, 'диалогов в наборе DEV'], [ev.length, 'оценено ИИ'], [avg == null ? '—' : nf.format(avg), 'средний итог из 100'], [gross, 'с грубой ошибкой']];
+      var box = document.getElementById('stats');
+      box.innerHTML = items.map(function (i) { return '<div class="stat"><b>' + i[0] + '</b><span>' + i[1] + '</span></div>'; }).join('');
+      box.hidden = false;
       var lang = { RU: 'русский', KZ: 'казахский', EN: 'английский' };
-      document.getElementById('stats-note').textContent = 'Данные работающего сервиса, набор DEV: ' + Object.keys(langs).map(function (k) { return (lang[k] || k) + ' — ' + langs[k]; }).join(', ') + (calls ? ', из них звонков — ' + calls : '') + '.';
-      document.getElementById('stats-block').hidden = false;
+      document.getElementById('stats-note').textContent = 'Живые данные сервиса: ' + Object.keys(langs).map(function (k) { return (lang[k] || k) + ' — ' + langs[k]; }).join(', ') + (calls ? ', из них звонков — ' + calls : '') + '.';
       if (health) document.getElementById('model-now').textContent = 'Сейчас подключена модель ' + health.model + ' (' + health.provider + ').';
-    }).catch(function () { /* API недоступен — например, страница выложена статикой */ });
+    }).catch(function () { /* API недоступен — страница выложена статикой */ });
   })();
 </script>
 </body>

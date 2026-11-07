@@ -1,43 +1,44 @@
 /* Все стили ограничены тегом cqa-app — компонент можно встроить в Dynamics 365 без конфликтов. */
 cqa-app [hidden] { display: none !important; }
 cqa-app {
-  /* «Протокол проверки»: бумага, зелёные чернила, маркер на доказательствах. 4 размера шрифта на экран, rem. */
-  --brand: #087a43; --brand-dark: #066536; --brand-deep: #12261c; --brand-soft: #ddf2e5;
-  --bg: #fafbf9; --panel: #fff; --ink: #12261c; --muted: #4b5d53; --line: #d6ded9;
-  --accent: var(--brand); --accent-soft: var(--brand-soft); --ok: #087a43; --ok-soft: #ddf2e5; --bad: #b8322a; --bad-soft: #fbe9e7;
-  --na: #5f6f66; --na-soft: #edf1ee; --warn: #8a5a00; --warn-soft: #fdf3dc; --hl: #ddf2e5;
-  --client: #fff; --operator: #f3f8f5; --bot: #f7f7fa; --system: transparent;
-  --radius: 0.625rem; --shadow: none;
-  --s-title: 1.5rem; --s-body: 0.9375rem; --s-meta: 0.8125rem; --s-big: 2.5rem;
-  display: block; font: 400 var(--s-body)/1.5 "Golos Text", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Стилистика в духе uniq.com.kz: светлый фон, яркий синий, Geist, шапка-пилюля, круглые кнопки, радиус 1.2rem. */
+  --brand: #0a6cff; --brand-dark: #0057d9; --brand-deep: #0a2db6; --brand-soft: #e8f1ff;
+  --bg: #f9f9fa; --panel: #fff; --ink: #10131a; --muted: #5b6474; --line: #e4e8ef;
+  --accent: var(--brand); --accent-soft: var(--brand-soft); --ok: #12a150; --ok-soft: #e4f6ec; --bad: #e5484d; --bad-soft: #fdecec;
+  --na: #6b7383; --na-soft: #eef1f5; --warn: #a15c00; --warn-soft: #fff3df; --hl: #e8f1ff;
+  --client: #fff; --operator: #f2f7ff; --bot: #f6f6f9; --system: transparent;
+  --radius: 1.2rem; --shadow: 0 1px 2px rgba(16,19,26,.04), 0 8px 24px rgba(16,19,26,.06);
+  --s-title: 1.5rem; --s-body: 0.9375rem; --s-meta: 0.8125rem; --s-big: 2.75rem;
+  display: block; font: 400 var(--s-body)/1.55 "Geist", -apple-system, "Segoe UI", Roboto, sans-serif;
   font-variant-numeric: tabular-nums; color: var(--ink); background: var(--bg); min-height: 100vh;
 }
 @media (prefers-color-scheme: dark) {
   cqa-app {
-    --brand: #4cc488; --brand-dark: #3aa872; --brand-deep: #e4ebe6; --brand-soft: #1d3a2a;
-    --bg: #0f1713; --panel: #15201a; --ink: #e4ebe6; --muted: #9fb0a6; --line: #2a3a31;
-    --ok: #4cc488; --ok-soft: #1d3a2a; --bad: #ff8a80; --bad-soft: #3a1f1c;
-    --na: #9fb0a6; --na-soft: #1f2a24; --warn: #e3b341; --warn-soft: #33290f; --hl: #1d3a2a;
-    --client: #15201a; --operator: #18281f; --bot: #1a1d24; --system: transparent;
+    --brand: #2f84ff; --brand-dark: #4d97ff; --brand-deep: #8fb6ff; --brand-soft: #0f2346;
+    --bg: #050914; --panel: #0b1120; --ink: #eef2fb; --muted: #9aa6bd; --line: #1a2440;
+    --ok: #3ccf7f; --ok-soft: #10301f; --bad: #ff6b70; --bad-soft: #3a1a1d;
+    --na: #9aa6bd; --na-soft: #141c30; --warn: #f0b44c; --warn-soft: #33270f; --hl: #0f2346;
+    --client: #0b1120; --operator: #0e1a33; --bot: #10162a; --system: transparent;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
   }
 }
 cqa-app * { box-sizing: border-box; }
 cqa-app button, cqa-app input, cqa-app select, cqa-app textarea { font: inherit; color: inherit; }
-cqa-app .topbar { display: flex; align-items: center; gap: 18px; padding: 10px 24px; background: var(--panel); color: var(--ink); border-bottom: 1px solid var(--line); box-shadow: inset 0 -2px 0 var(--brand); position: sticky; top: 0; z-index: 20; flex-wrap: wrap; }
+cqa-app .topbar { display: flex; align-items: center; gap: 1.1rem; padding: 0.5rem 0.6rem 0.5rem 1rem; margin: 0.75rem auto 0; max-width: 1460px; width: calc(100% - 2rem); background: color-mix(in srgb, var(--panel) 85%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); color: var(--ink); border: 1px solid var(--line); border-radius: 1.1rem; box-shadow: var(--shadow); position: sticky; top: 0.75rem; z-index: 20; flex-wrap: wrap; }
 cqa-app .brand { font-weight: 700; display: flex; align-items: center; gap: 0.6rem; color: var(--ink); text-decoration: none; }
-cqa-app .brand .mark { width: 1.6rem; height: 1.6rem; border-radius: 0.45rem; background: #087a43; display: grid; place-items: center; }
+cqa-app .brand .mark { width: 1.75rem; height: 1.75rem; border-radius: 0.55rem; background: #0a6cff; display: grid; place-items: center; }
 cqa-app .brand .mark svg { width: 1rem; height: 1rem; }
 cqa-app .brand small { color: var(--muted); font-weight: 500; margin-left: 6px; }
 cqa-app nav { display: flex; gap: 4px; }
-cqa-app nav a { padding: 0.4rem 0.8rem; border-radius: 0.5rem; color: var(--muted); text-decoration: none; font-weight: 500; }
+cqa-app nav a { padding: 0.45rem 0.95rem; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; }
 cqa-app nav a:hover { color: var(--ink); }
-cqa-app nav a.active { background: var(--brand-soft); color: var(--ink); font-weight: 600; }
+cqa-app nav a.active { background: var(--brand); color: #fff; font-weight: 600; }
 cqa-app nav a .count { background: var(--bad); color: #fff; border-radius: 9px; padding: 0 6px; font-size: 11px; margin-left: 4px; }
 cqa-app .spacer { flex: 1; }
-cqa-app .model-badge { font-size: var(--s-meta); color: var(--muted); border: 1px solid var(--line); border-radius: 20px; padding: 3px 10px; }
+cqa-app .model-badge { font-size: var(--s-meta); color: var(--muted); border: 1px solid var(--line); background: var(--panel); border-radius: 20px; padding: 3px 10px; }
 cqa-app .model-badge.off { color: var(--bad); border-color: var(--bad); }
-cqa-app main { padding: 18px 20px 60px; max-width: 1500px; margin: 0 auto; }
-cqa-app h1 { font-size: var(--s-title); font-weight: 700; letter-spacing: -0.01em; margin: 0 0 14px; }
+cqa-app main { padding: 1.25rem 1rem 4rem; max-width: 1500px; margin: 0 auto; }
+cqa-app h1 { font-size: var(--s-title); font-weight: 650; letter-spacing: -0.03em; margin: 0 0 14px; }
 cqa-app h2 { font-size: var(--s-body); font-weight: 700; margin: 0 0 10px; }
 cqa-app h3 { font-size: var(--s-body); margin: 0 0 6px; }
 cqa-app .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px 16px; }
@@ -46,7 +47,7 @@ cqa-app .stack > * + * { margin-top: 12px; }
 cqa-app .muted { color: var(--muted); }
 cqa-app .small { font-size: var(--s-meta); }
 cqa-app a.btn { text-decoration: none; display: inline-block; }
-cqa-app .btn { border: 1px solid var(--line); background: var(--panel); padding: 7px 14px; border-radius: 10px; cursor: pointer; font-weight: 500; white-space: nowrap; }
+cqa-app .btn { border: 1px solid var(--line); background: var(--panel); padding: 0.5rem 1.1rem; border-radius: 999px; cursor: pointer; font-weight: 500; white-space: nowrap; }
 cqa-app .btn:hover { border-color: var(--accent); }
 cqa-app .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
 cqa-app .btn.primary:hover { background: var(--brand-dark); border-color: var(--brand-dark); }
@@ -71,7 +72,7 @@ cqa-app .tag.na { background: var(--na-soft); color: var(--na); }
 cqa-app .tag.warn { background: var(--warn-soft); color: var(--warn); }
 cqa-app .tag.blue { background: var(--accent-soft); color: var(--accent); }
 cqa-app .score { font-weight: 700; font-variant-numeric: tabular-nums; }
-cqa-app .score.big { font-size: var(--s-big); line-height: 1; color: var(--ink); letter-spacing: -0.02em; }
+cqa-app .score.big { font-size: var(--s-big); line-height: 1; color: var(--ink); letter-spacing: -0.045em; font-weight: 650; }
 cqa-app .toast { position: fixed; right: 20px; bottom: 20px; background: var(--ink); color: var(--bg); padding: 10px 14px; border-radius: 8px; z-index: 100; max-width: 460px; white-space: pre-wrap; box-shadow: var(--shadow); }
 cqa-app .toast.err { background: var(--bad); color: #fff; }
 cqa-app .progress { height: 6px; background: var(--line); border-radius: 4px; overflow: hidden; min-width: 160px; }
@@ -80,7 +81,7 @@ cqa-app .progress > div { height: 100%; background: var(--brand); transition: wi
 /* Карточка диалога */
 cqa-app .card-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 16px; align-items: start; }
 @media (max-width: 1000px) { cqa-app .card-grid { grid-template-columns: 1fr; } }
-cqa-app .transcript { max-height: calc(100vh - 150px); overflow-y: auto; position: sticky; top: 70px; }
+cqa-app .transcript { max-height: calc(100vh - 120px); overflow-y: auto; position: sticky; top: 5.25rem; }
 cqa-app .audio-bar { position: sticky; top: -14px; background: var(--panel); padding: 8px 0 10px; z-index: 5; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
 cqa-app .audio-bar audio { width: 100%; }
 cqa-app .msg { display: grid; grid-template-columns: 34px 1fr; gap: 8px; padding: 7px 9px; border-radius: 8px; margin-bottom: 4px; border: 2px solid transparent; scroll-margin: 90px; }
@@ -144,12 +145,20 @@ cqa-app th { font-size: var(--s-meta); font-weight: 600; color: var(--muted); }
 cqa-app .tag { font-size: var(--s-meta); font-weight: 600; }
 cqa-app .ev { background: var(--hl); border-color: transparent; }
 cqa-app .ev:hover { border-color: var(--brand); }
-cqa-app .msg { border-left: 2px solid transparent; border-radius: 0.375rem; }
-cqa-app .msg.operator { border-left-color: var(--brand); }
+cqa-app .msg { border-left: 2px solid transparent; border-radius: 0.9rem; }
+cqa-app .msg.operator { border-left-color: transparent; }
 cqa-app .msg.system { color: var(--muted); }
 cqa-app .msg.flash { background: var(--hl); border-color: var(--brand); }
 cqa-app .crit.flagged { border-color: var(--bad); background: var(--bad-soft); }
-cqa-app .panel { box-shadow: none; }
+cqa-app .panel { box-shadow: var(--shadow); }
 cqa-app .score { font-variant-numeric: tabular-nums; }
 cqa-app :focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { cqa-app * { transition: none !important; scroll-behavior: auto !important; } }
+
+/* uniq-стиль: синие галочки, мягкие поля ввода, таблица без рамок */
+cqa-app input[type=text], cqa-app input[type=number], cqa-app input[type=search], cqa-app select, cqa-app textarea { border-radius: 0.8rem; padding: 0.5rem 0.8rem; }
+cqa-app .tag { border-radius: 999px; padding: 0.12rem 0.65rem; }
+cqa-app .tag.blue { background: var(--brand-soft); color: var(--brand); }
+cqa-app .crit { border-radius: var(--radius); }
+cqa-app .ev { border-radius: 999px; padding: 0.25rem 0.75rem; }
+cqa-app tbody tr:hover { background: var(--brand-soft); }
