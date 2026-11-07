@@ -1,5 +1,6 @@
 // Проверка готовности перед демонстрацией: pnpm check
-// Сервер, модель, API организаторов, чек-лист, данные, results.json, точность. Ничего не меняет.
+// Сервер, модель, API организаторов, чек-лист, данные, results.json, записи звонков, точность.
+// Меняет только кэш: записи звонков скачиваются в storage/audio, чтобы демо не зависело от сети.
 const API = (process.env.CQA_API || `http://localhost:${process.env.PORT || 3000}`).replace(/\/$/, '');
 const rows = []; let failed = 0;
 const check = async (name, fn) => {
@@ -36,6 +37,16 @@ if (health) {
     const calls = (await get('/api/conversations')).filter((c) => c.channel === 'voice call' && c.last_evaluation);
     if (!calls.length) throw new Error('нет оценённого звонка — оцените хотя бы один');
     return calls[0].conversation_id;
+  });
+  await check('Записи звонков сохранены локально (демо без интернета)', async () => {
+    const calls = (await get('/api/conversations')).filter((c) => c.channel === 'voice call' && c.has_audio);
+    let ok = 0; const bad = [];
+    for (const c of calls) {
+      const r = await fetch(`${API}/api/audio/${encodeURIComponent(c.conversation_id)}/file`, { signal: AbortSignal.timeout(130000) }).catch(() => null);
+      if (r?.ok) { ok++; await r.arrayBuffer(); } else bad.push(c.conversation_id);
+    }
+    if (bad.length) throw new Error(`не скачались: ${bad.join(', ')}`);
+    return `${ok} из ${calls.length}`;
   });
   await check('Замер точности', async () => { const a = await get('/api/accuracy'); if (!a.date) throw new Error('нет — pnpm eval --run'); return `${a.agreement}% на ${a.dialogs} диалогах, ${a.date.slice(0, 16)}`; });
 }

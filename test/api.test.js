@@ -243,6 +243,18 @@ test('аналитика и results.json по набору', async () => {
   const p = await api('GET', '/api/results?group_id=B&expect=10');
   assert.ok(p.data.problems.some((x) => /ожидается 10/.test(x)));
   assert.equal((await api('GET', '/api/audio/t-chat-1/file')).status, 404);
+
+  // запись звонка из локального кэша: без сети, с перемоткой (Range)
+  await api('POST', '/api/conversations/upload?group_id=AUD', { conversation_id: 'aud-1', channel: 'voice call', language: 'RU', audio_url: 'http://127.0.0.1:9/unreachable',
+    transcript: [{ timestamp: '00:00', speaker: 'client', text: 'Алло' }, { timestamp: '00:02', speaker: 'operator', text: 'Здравствуйте' }] });
+  fs.mkdirSync(path.join(storage, 'audio'), { recursive: true });
+  fs.writeFileSync(path.join(storage, 'audio', 'aud-1.mp3'), Buffer.from('0123456789'));
+  const full = await fetch(base + '/api/audio/aud-1');
+  assert.equal(full.status, 200);
+  assert.equal(full.headers.get('accept-ranges'), 'bytes');
+  const part = await fetch(base + '/api/audio/aud-1', { headers: { range: 'bytes=2-5' } });
+  assert.equal(part.status, 206);
+  assert.equal(await part.text(), '2345');
 });
 
 test('песочница, «что если», ручная оценка, распределение, помощник', async () => {

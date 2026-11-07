@@ -174,28 +174,39 @@ route('GET', '/api/conversations/:id/compare', ({ p }) => {
 });
 route('DELETE', '/api/conversations/:id', ({ p }) => ({ deleted: db.remove('conversations', decodeURIComponent(p.id), 'conversation_id') }));
 
-// Аудио: перенаправление на свежую подписанную ссылку mp3
-route('GET', '/api/audio/:id', async ({ p, res }) => {
-  const c = db.get('conversations', decodeURIComponent(p.id), 'conversation_id');
-  if (!c?.audio_url) throw new HttpError(404, 'У диалога нет записи');
-  const src = await resolveAudio(c.audio_url);
-  res.writeHead(302, { location: src, 'cache-control': 'no-store' });
-  res.end();
-});
-
-// Файл записи через наш адрес (same-origin): браузер декодирует его и строит волны дорожек «Клиент»/«Оператор».
-route('GET', '/api/audio/:id/file', async ({ p, res }) => {
-  const c = db.get('conversations', decodeURIComponent(p.id), 'conversation_id');
-  if (!c?.audio_url) throw new HttpError(404, 'У диалога нет записи');
+// Аудио звонка. Запись скачивается с сайта организаторов один раз и хранится в storage/audio:
+// демонстрация не зависит от сети, а плеер перематывает по Range-запросам.
+const AUDIO_DIR = path.join(process.env.CQA_STORAGE_DIR || path.resolve('storage'), 'audio');
+const audioFile = (id) => path.join(AUDIO_DIR, id.replace(/[^\w.-]/g, '_') + '.mp3');
+async function cachedAudio(c) {
   const local = localUpload(c.audio_url);
-  if (local) { const buf = fs.readFileSync(local); res.writeHead(200, { 'content-type': mimeOf(local), 'content-length': buf.length }); return res.end(buf); }
-  const src = await resolveAudio(c.audio_url);
-  const up = await fetch(src, { signal: AbortSignal.timeout(120_000) });
+  if (local) return local;
+  const f = audioFile(c.conversation_id);
+  if (fs.existsSync(f)) return f;
+  const up = await fetch(await resolveAudio(c.audio_url), { signal: AbortSignal.timeout(120_000) });
   if (!up.ok) throw new HttpError(502, `Запись недоступна (HTTP ${up.status})`);
-  const buf = Buffer.from(await up.arrayBuffer());
-  res.writeHead(200, { 'content-type': up.headers.get('content-type') || 'audio/mpeg', 'content-length': buf.length, 'cache-control': 'private, max-age=1800' });
-  res.end(buf);
-});
+  fs.mkdirSync(AUDIO_DIR, { recursive: true });
+  fs.writeFileSync(f + '.tmp', Buffer.from(await up.arrayBuffer()));
+  fs.renameSync(f + '.tmp', f);
+  return f;
+}
+function sendFileRange(req, res, file) {
+  const size = fs.statSync(file).size;
+  const m = /bytes=(\d*)-(\d*)/.exec(req.headers.range || '');
+  const headers = { 'content-type': mimeOf(file), 'accept-ranges': 'bytes', 'cache-control': 'private, max-age=3600' };
+  if (!m) { res.writeHead(200, { ...headers, 'content-length': size }); return fs.createReadStream(file).pipe(res); }
+  const start = m[1] ? Number(m[1]) : Math.max(0, size - Number(m[2]));
+  const end = m[1] && m[2] ? Math.min(Number(m[2]), size - 1) : size - 1;
+  res.writeHead(206, { ...headers, 'content-range': `bytes ${start}-${end}/${size}`, 'content-length': end - start + 1 });
+  fs.createReadStream(file, { start, end }).pipe(res);
+}
+const audioRoute = async ({ p, req, res }) => {
+  const c = db.get('conversations', decodeURIComponent(p.id), 'conversation_id');
+  if (!c?.audio_url) throw new HttpError(404, 'У диалога нет записи');
+  sendFileRange(req, res, await cachedAudio(c));
+};
+route('GET', '/api/audio/:id', audioRoute);
+route('GET', '/api/audio/:id/file', audioRoute);
 
 // Аналитика по набору: последняя оценка каждого диалога выбранным чек-листом.
 route('GET', '/api/analytics', ({ q }) => {
