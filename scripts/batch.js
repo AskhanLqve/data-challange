@@ -1,5 +1,5 @@
 // Пакетная оценка из терминала (для контрольного набора):
-//   npm run batch -- --group CONTROL [--checklist cqa-default] [--only-new]
+//   pnpm batch --group CONTROL [--checklist cqa-default] [--only-new]
 // Загружает набор из API организаторов, оценивает все диалоги текущей версией чек-листа,
 // сохраняет оценки в хранилище (видны в UI) и пишет results/<group>.json и .csv.
 import fs from 'node:fs';

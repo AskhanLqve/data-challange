@@ -4,12 +4,12 @@
 
 ## Быстрый старт
 
-Нужен Node.js 20.6 или новее.
+Нужны Node.js 20.6 или новее и pnpm.
 
 ```bash
-npm install
+pnpm install
 cp .env.example .env          # впишите ANTHROPIC_API_KEY
-npm start                     # http://localhost:3000
+pnpm start                    # http://localhost:3000
 ```
 
 Как начать работу:
@@ -21,11 +21,11 @@ npm start                     # http://localhost:3000
 Пакетная оценка из терминала, например для контрольного набора:
 
 ```bash
-npm run batch -- --group <CONTROL_GROUP_ID>          # оценки сохранятся и появятся в UI
+pnpm batch --group <CONTROL_GROUP_ID>          # оценки сохранятся и появятся в UI
 # результаты также пишутся в results/<group>.json и results/<group>.csv
 ```
 
-Тесты расчёта баллов: `npm test`.
+Тесты расчёта баллов: `pnpm test`.
 
 ## Что умеет
 

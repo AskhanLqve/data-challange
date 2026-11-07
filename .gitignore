@@ -4,3 +4,4 @@ storage/
 *.tmp
 data/
 *.pdf
+*.env
