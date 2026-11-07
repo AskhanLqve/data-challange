@@ -6,7 +6,8 @@ import { db, newId } from './db.js';
 import { DEFAULT_CHECKLIST } from './defaultChecklist.js';
 import { fetchGroup, extractRecords, importRecords, resolveAudio, localUpload, normalizeRecord } from './dataset.js';
 import { transcribeFile, asrAvailable, ASR_MODEL } from './asr.js';
-import { evaluateConversation, recomputeFinal, startBatch, getJob, listJobs, publicJob, resumeJobs, saveEvaluation, migrateTraces } from './evaluator.js';
+import { conversationMetrics } from './metrics.js';
+import { evaluateConversation, recomputeFinal, startBatch, getJob, listJobs, publicJob, resumeJobs, saveEvaluation, migrateTraces, backfillReview, MODE } from './evaluator.js';
 import { providerInfo, providerReady, completeText } from './llm.js';
 import { allowedAnswers, answerLabel, computeScore, normalizeAnswer } from './scoring.js';
 import { buildResults, validateResults } from './results.js';
@@ -73,7 +74,7 @@ function convSummary(c) {
     conversation_id: c.conversation_id, group_id: c.group_id, channel: c.channel, language: c.language,
     messages: c.transcript.length, has_audio: Boolean(c.audio_url), assignee: c.assignee || null, title: c.title || null, source: c.source || 'api',
     preview: (c.transcript.find((m) => m.speaker === 'client')?.text || '').slice(0, 140),
-    last_evaluation: last ? { id: last.id, total: last.final_score.total, original_total: last.original_score.total, gross: last.final_score.gross_error, checklist_name: last.checklist.name, checklist_version: last.checklist_version, created_at: last.created_at, status: last.status } : null,
+    last_evaluation: last ? { id: last.id, needs_review: Boolean(last.needs_review) && !last.reviewed && last.status !== 'reviewed', review_reasons: last.review_reasons || [], total: last.final_score.total, original_total: last.original_score.total, gross: last.final_score.gross_error, checklist_name: last.checklist.name, checklist_version: last.checklist_version, created_at: last.created_at, status: last.status } : null,
     evaluations: evs.length,
   };
 }
@@ -150,7 +151,7 @@ route('GET', '/api/conversations/:id', ({ p }) => {
   const evs = db.filter('evaluations', (e) => e.conversation_id === c.conversation_id)
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
     .map((e) => ({ id: e.id, created_at: e.created_at, total: e.final_score.total, checklist_name: e.checklist.name, checklist_version: e.checklist_version, status: e.status }));
-  return { ...c, evaluations: evs };
+  return { ...c, evaluations: evs, metrics: conversationMetrics(c) };
 });
 route('DELETE', '/api/conversations/:id', ({ p }) => ({ deleted: db.remove('conversations', decodeURIComponent(p.id), 'conversation_id') }));
 
@@ -220,6 +221,26 @@ route('GET', '/api/analytics', ({ q }) => {
   };
 });
 
+// Точность ИИ относительно экспертной разметки: последний отчёт `pnpm eval --run` (eval/reports).
+route('GET', '/api/accuracy', () => {
+  const dir = path.resolve('eval', 'reports');
+  const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith('.json')).sort().reverse() : [];
+  for (const f of files) {
+    const r = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+    if (!r.run) continue;
+    const cl = db.all('checklists')[0];
+    const pct = (x) => (x?.n ? Math.round((x.ok / x.n) * 1000) / 10 : null);
+    return {
+      date: r.date, model: r.model?.model, provider: r.model?.provider, checklist_version: r.checklist_version,
+      dialogs: r.dialogs ?? r.totals?.length ?? null, answers: r.overall.all.n,
+      agreement: pct(r.overall.all), agreement_sure: pct(r.overall.sure), mae: r.mae, gross: r.gross,
+      criteria: Object.entries(r.byCrit).map(([id, v]) => { const c = cl.criteria.find((x) => x.id === id); return { id, code: c?.code, name: c?.name || id, agreement: pct(v.all), n: v.all.n }; }),
+      languages: Object.entries(r.byLang || {}).map(([k, v]) => ({ key: k, agreement: pct(v), n: v.n })),
+    };
+  }
+  return { date: null };
+});
+
 // Оценка
 route('POST', '/api/evaluate', async ({ body }) => {
   const conv = db.get('conversations', body.conversation_id, 'conversation_id');
@@ -229,6 +250,26 @@ route('POST', '/api/evaluate', async ({ body }) => {
   const ev = await evaluateConversation(conv, structuredClone(cl), { runs: body.runs ? Number(body.runs) : undefined, mode: ['single', 'per-criterion'].includes(body.mode) ? body.mode : undefined });
   saveEvaluation(ev);
   return ev;
+});
+// То же, но потоком NDJSON: строка на каждый готовый критерий, затем итоговая оценка — интерфейс показывает ход оценки.
+route('POST', '/api/evaluate/stream', async ({ body, res }) => {
+  const conv = db.get('conversations', body.conversation_id, 'conversation_id');
+  if (!conv) throw new HttpError(404, 'Диалог не найден');
+  const cl = db.get('checklists', body.checklist_id) || db.all('checklists')[0];
+  if (!providerInfo().configured) throw new HttpError(503, 'LLM не настроен: задайте ANTHROPIC_API_KEY в .env (или CQA_PROVIDER=ollama)');
+  res.writeHead(200, { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store' });
+  const line = (o) => res.write(JSON.stringify(o) + '\n');
+  const mode = ['single', 'per-criterion'].includes(body.mode) ? body.mode : MODE;
+  line({ type: 'start', mode, criteria: cl.criteria.map((c) => ({ id: c.id, code: c.code, name: c.name, type: c.type, max: c.type === 'scale' ? Math.max(...c.scale.map((x) => x.value)) : null })) });
+  try {
+    // клиент нажал «Остановить» или закрыл страницу — дальнейшие критерии не запускаем
+    const ac = new AbortController();
+    res.on('close', () => { if (!res.writableFinished) ac.abort(); });
+    const ev = await evaluateConversation(conv, structuredClone(cl), { mode, signal: ac.signal, onCriterion: (x) => line({ type: 'criterion', ...x }) });
+    saveEvaluation(ev);
+    line({ type: 'done', evaluation_id: ev.id, total: ev.final_score.total, duration_ms: ev.duration_ms });
+  } catch (e) { if (!res.destroyed) line({ type: 'error', error: String(e.message || e) }); }
+  res.end();
 });
 route('POST', '/api/evaluate/batch', ({ body }) => {
   const cl = db.get('checklists', body.checklist_id) || db.all('checklists')[0];
@@ -252,6 +293,12 @@ route('GET', '/api/evaluations/:id', ({ p }) => {
 });
 
 // Апелляции
+// Проверяющий просмотрел оценку, помеченную «нужна проверка», и согласен с ней без апелляции.
+route('POST', '/api/evaluations/:id/confirm', ({ p, body }) => {
+  const ev = db.get('evaluations', p.id);
+  if (!ev) throw new HttpError(404, 'Оценка не найдена');
+  return db.update('evaluations', ev.id, { reviewed: true, reviewed_by: String(body?.reviewer || 'Проверяющий'), reviewed_at: new Date().toISOString() });
+});
 route('POST', '/api/appeals', ({ body }) => {
   const ev = db.get('evaluations', body.evaluation_id);
   if (!ev) throw new HttpError(404, 'Оценка не найдена');
@@ -302,6 +349,29 @@ route('POST', '/api/appeals/:id/decision', ({ p, body }) => {
   ap.decision = { ...crit.review, new_label: answerLabel(def, newAnswer), total_before: before, total_after: ev.final_score.total };
   db.upsert('appeals', ap);
   return { appeal: ap, final_score: ev.final_score };
+});
+
+// Обучение на апелляциях: причина решения проверяющего добавляется в «Уточнения для ИИ» критерия → новая версия чек-листа.
+route('POST', '/api/appeals/:id/learn', ({ p, body }) => {
+  const ap = db.get('appeals', p.id);
+  if (!ap) throw new HttpError(404, 'Апелляция не найдена');
+  if (ap.status !== 'resolved' || ap.decision?.action !== 'change') throw new HttpError(409, 'Добавить в чек-лист можно только изменённую оценку');
+  if (ap.learned) throw new HttpError(409, `Уже добавлено в чек-лист v${ap.learned.version}`);
+  const text = String(body.text || '').trim();
+  if (!text) throw new HttpError(400, 'Пустое уточнение');
+  const ev = db.get('evaluations', ap.evaluation_id);
+  const prev = db.get('checklists', ev.checklist_id);
+  if (!prev) throw new HttpError(404, 'Чек-лист оценки удалён');
+  const cl = structuredClone(prev);
+  const c = cl.criteria.find((x) => x.id === ap.criterion_id);
+  if (!c) throw new HttpError(409, 'В текущей версии чек-листа этого критерия нет');
+  c.guidance = [c.guidance, text].filter(Boolean).join(' ');
+  Object.assign(cl, { version: prev.version + 1, updated_at: new Date().toISOString() });
+  db.upsert('checklists', cl);
+  db.insert('checklist_versions', { ...structuredClone(cl), vid: `${cl.id}@${cl.version}` });
+  ap.learned = { version: cl.version, text, at: cl.updated_at };
+  db.upsert('appeals', ap);
+  return { appeal: ap, checklist: { id: cl.id, version: cl.version } };
 });
 
 // Экспорт последних оценок (CSV / JSON)
@@ -540,6 +610,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 migrateTraces();
+backfillReview();
 resumeJobs();
 
 // Долгие оценки (локальная модель, 8 вызовов) не должны обрываться таймаутом HTTP-сервера.

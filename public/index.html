@@ -83,6 +83,11 @@
 
   /* «устройство»: карточка оценки с всплывающими чипами */
   .device-wrap { position: relative; display: grid; place-items: center; min-height: 32rem; }
+  #wave3d { position: absolute; right: 0; top: 0; width: 50%; height: 100%; z-index: 0; pointer-events: none;
+    -webkit-mask-image: radial-gradient(closest-side, #000 60%, transparent); mask-image: radial-gradient(closest-side, #000 60%, transparent); }
+  @media (max-width: 900px) { #wave3d { display: none; } }
+  .device-wrap > .device { position: relative; z-index: 1; }
+  .device-wrap > .chip { z-index: 2; }
   .device { width: min(23rem, 100%); background: #0c1411; color: #f0f2f5; border-radius: 2.2rem; padding: 1.1rem; border: 6px solid #22302a;
     box-shadow: 0 40px 80px rgba(0,179,35,.22), 0 0 0 1px rgba(255,255,255,.04) inset; transform: rotate(-5deg); }
   .device .top { display: flex; justify-content: space-between; font-size: 0.6875rem; color: #6a788a; padding: 0.2rem 0.4rem 0.8rem; }
@@ -240,6 +245,7 @@
 
 <main>
   <div class="hero">
+    <canvas id="wave3d" aria-hidden="true"></canvas>
     <div class="glow" style="width:34rem;height:34rem;right:-6rem;top:-4rem;background:color-mix(in srgb,var(--blue) 22%,transparent)"></div>
     <div class="wrap">
       <div>
@@ -439,6 +445,58 @@
   <div class="wrap"><span>CQA — прототип для хакатона Freedom Broker.</span><span>Не является официальным продуктом компании.</span></div>
 </footer>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
+<script>
+  // 3D-сцена за карточкой: две дорожки разговора (клиент и оператор) из столбиков, как волна записи звонка.
+  // Без WebGL или библиотеки — просто не рисуется; при «уменьшить движение» — один неподвижный кадр.
+  window.addEventListener('load', function () {
+    var canvas = document.getElementById('wave3d');
+    if (!canvas || !window.THREE) return;
+    var T = window.THREE, renderer;
+    try { renderer = new T.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true }); } catch (e) { return; }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    var scene = new T.Scene();
+    var camera = new T.PerspectiveCamera(35, 1, 0.1, 100);
+    camera.position.set(0, 5.5, 14); camera.lookAt(0, -0.6, 0);
+    scene.add(new T.AmbientLight(0xffffff, 0.7));
+    var sun = new T.DirectionalLight(0xffffff, 0.8); sun.position.set(4, 10, 6); scene.add(sun);
+    var N = 48, lanes = [{ z: -1.4, color: 0x0c5a2a, phase: 0 }, { z: 1.4, color: 0x00b323, phase: 1.7 }];
+    var geo = new T.BoxGeometry(0.26, 1, 0.9), dummy = new T.Object3D(), meshes = [];
+    lanes.forEach(function (l) {
+      var m = new T.InstancedMesh(geo, new T.MeshStandardMaterial({ color: l.color, roughness: 0.45, metalness: 0.1 }), N);
+      m.userData = l; scene.add(m); meshes.push(m);
+    });
+    // подсвеченный «фрагмент-доказательство» — полупрозрачный блок поперёк дорожек
+    var hl = new T.Mesh(new T.BoxGeometry(3, 0.06, 5), new T.MeshBasicMaterial({ color: 0xffa700, transparent: true, opacity: 0.35 }));
+    hl.position.y = -2.2; scene.add(hl);
+    function frame(t) {
+      meshes.forEach(function (m) {
+        var l = m.userData;
+        for (var i = 0; i < N; i++) {
+          var x = (i - N / 2) * 0.42;
+          // реплики идут «пачками», как в разговоре: огибающая × мелкая волна
+          var env = Math.max(0, Math.sin(i * 0.19 + l.phase + t * 0.6)) ;
+          var h = 0.15 + env * (1.6 + 1.4 * Math.abs(Math.sin(i * 1.7 + t * 2.1 + l.phase)));
+          dummy.position.set(x, h / 2 - 2.2, l.z); dummy.scale.set(1, h, 1); dummy.updateMatrix(); m.setMatrixAt(i, dummy.matrix);
+        }
+        m.instanceMatrix.needsUpdate = true;
+      });
+      hl.position.x = Math.sin(t * 0.35) * 6;
+      scene.rotation.y = -0.18 + Math.sin(t * 0.2) * 0.06;
+      renderer.render(scene, camera);
+    }
+    function resize() {
+      var w = canvas.clientWidth, h = canvas.clientHeight; if (!w || !h) return;
+      renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+    }
+    resize(); window.addEventListener('resize', function () { resize(); if (still) frame(2); });
+    var still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (still) { frame(2); return; }
+    var visible = true, start = performance.now();
+    new IntersectionObserver(function (e) { visible = e[0].isIntersecting; }).observe(canvas);
+    (function loop(now) { if (visible && !document.hidden) frame((now - start) / 1000); requestAnimationFrame(loop); })(start);
+  });
+</script>
 <script>
   (function () {
     // тема: системная по умолчанию, переключатель запоминается

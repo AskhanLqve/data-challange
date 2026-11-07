@@ -117,6 +117,20 @@ test('оценка → апелляция → решение → пересчё�
   assert.equal(c06.review.reason, 'Сбоя нет');
   const again = await api('POST', `/api/appeals/${ap.data.id}/decision`, { action: 'confirm', reason: 'x' });
   assert.equal(again.status, 409);
+
+  // обучение на апелляции: причина попадает в уточнения критерия, создаётся новая версия чек-листа
+  const clBefore = (await api('GET', '/api/checklists/cqa-default')).data;
+  const learn = await api('POST', `/api/appeals/${ap.data.id}/learn`, { text: 'Короткий вежливый ответ — не сбой.' });
+  assert.equal(learn.status, 200);
+  assert.equal(learn.data.checklist.version, clBefore.version + 1);
+  const clAfter = (await api('GET', '/api/checklists/cqa-default')).data;
+  assert.match(clAfter.criteria.find((c) => c.id === ap.data.criterion_id).guidance, /Короткий вежливый ответ/);
+  assert.equal((await api('POST', `/api/appeals/${ap.data.id}/learn`, { text: 'ещё' })).status, 409, 'повторно не добавляется');
+
+  // «нужна проверка» снимается подтверждением
+  const conf = await api('POST', `/api/evaluations/${ev.data.id}/confirm`, { reviewer: 'QA' });
+  assert.equal(conf.status, 200);
+  assert.equal(conf.data.reviewed, true);
 });
 
 test('чек-лист: валидация, новая версия, замена критерия применяется к оценке', async () => {
@@ -135,6 +149,28 @@ test('чек-лист: валидация, новая версия, замена
   assert.match(ev.data.trace.system_prompt, /Предложение продукта/, 'новый критерий попал в промпт');
   const reset = await api('POST', '/api/checklists/cqa-default/reset-default');
   assert.equal(reset.data.criteria[6].id, 'c07');
+});
+
+test('живая оценка: поток NDJSON по критериям, затем итог', async () => {
+  const res = await api('POST', '/api/evaluate/stream', { conversation_id: 't-chat-1', checklist_id: 'cqa-default', mode: 'per-criterion' }, true);
+  assert.equal(res.status, 200);
+  const lines = (await res.text()).trim().split('\n').map((l) => JSON.parse(l));
+  assert.equal(lines[0].type, 'start');
+  const crit = lines.filter((l) => l.type === 'criterion');
+  assert.equal(crit.length, lines[0].criteria.length, 'по строке на каждый критерий');
+  assert.ok(crit.every((c) => c.label), 'у каждого критерия подпись ответа');
+  const done = lines.at(-1);
+  assert.equal(done.type, 'done');
+  assert.equal((await api('GET', `/api/evaluations/${done.evaluation_id}`)).status, 200, 'оценка сохранена');
+});
+
+test('точность ИИ: сводка последнего замера', async () => {
+  const r = await api('GET', '/api/accuracy');
+  assert.equal(r.status, 200);
+  if (r.data.date) {
+    assert.ok(r.data.agreement >= 0 && r.data.agreement <= 100);
+    assert.ok(r.data.criteria.length > 0 && r.data.criteria.every((c) => c.name));
+  }
 });
 
 test('пакетная оценка, сохранение очереди и экспорт', async () => {

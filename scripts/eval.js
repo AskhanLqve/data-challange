@@ -152,7 +152,7 @@ const report = md.join('\n') + '\n';
 fs.mkdirSync('eval/reports', { recursive: true });
 fs.writeFileSync('eval/LATEST.md', report);
 const stamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
-fs.writeFileSync(`eval/reports/${stamp}.json`, JSON.stringify({ date: now, model: health, checklist_version: checklist.version, run: RUN, overall, byCrit: Object.fromEntries(byCrit), mae, gross, mismatches, totals }, null, 1));
+fs.writeFileSync(`eval/reports/${stamp}.json`, JSON.stringify({ date: now, model: health, checklist_version: checklist.version, run: RUN, overall, byCrit: Object.fromEntries(byCrit), byLang: Object.fromEntries(byLang), dialogs: allItems.length, mae, gross, mismatches, totals }, null, 1));
 
 // краткая сводка в консоль
 console.log(`\nСовпадение ответов: ${pct(overall.all)} (без спорных ${pct(overall.sure)}) · MAE итога ${mae ?? '—'} · грубые ошибки ${gross.tp}/${gross.tp + gross.fn} найдено, ложных ${gross.fp}`);

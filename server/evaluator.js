@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { completeJSON, MODEL, PROVIDER, EFFORT } from './llm.js';
 import { computeScore, normalizeAnswer, allowedAnswers, answerLabel } from './scoring.js';
 import { db, newId } from './db.js';
+import { ruleFor } from './rules.js';
 
 const RUNS = Math.max(1, Number(process.env.CQA_RUNS || 1)); // >1 — голосование нескольких прогонов
 // single — все критерии одним вызовом (сильные облачные модели, дешевле);
@@ -16,7 +17,6 @@ const LANG_NAMES = { RU: 'русский', KZ: 'казахский', EN: 'анг
  * физически не может поставить, например, балл шкалы в критерий «Да/Нет».
  */
 const criterionItem = (c) => z.object({
-  // Для критериев с N/A — сначала отдельный вопрос о применимости (небольшие модели иначе путают «Нет» и N/A).
   // Для критериев с N/A — сначала короткая проверка фактов по условию применимости, затем решение
   // (небольшие модели без этого шага путают «Нет» и N/A).
   ...(c.na_allowed && c.type !== 'flag' ? {
@@ -101,12 +101,13 @@ export function buildCriterionSystemPrompt(checklist) {
   ].join('\n');
 }
 
-export function buildCriterionUserPrompt(conv, c) {
+export function buildCriterionUserPrompt(conv, c, note) {
   return [
     buildUserPrompt(conv, { withTask: false }),
     '',
     '## Критерий для оценки',
     criterionBlock(c),
+    ...(note ? ['', note] : []),
     '',
     `Оцени работу оператора только по критерию «${c.name}».`,
   ].join('\n');
@@ -155,11 +156,13 @@ export function validateRun(checklist, conv, parsed) {
     if (r.na_condition_met === true && c.na_allowed && answer !== 'na') { answer = 'na'; warning = undefined; }
     if (r.na_condition_met === false && answer === 'na') warning = 'Модель отметила, что условие N/A не выполнено, но поставила N/A';
     const evidence = (r.evidence || [])
+      .map((e) => ({ ...e, quote: cleanQuote(e.quote) }))
+      .map((e) => ({ ...e, message: locateQuote(conv, e) }))
       .filter((e) => e.message >= 1 && e.message <= maxIdx)
-      .map((e) => ({ message: e.message, quote: e.quote, speaker: conv.transcript[e.message - 1].speaker, timestamp: conv.transcript[e.message - 1].timestamp, offset_sec: conv.transcript[e.message - 1].offset_sec }));
+      .map((e) => ({ message: e.message, quote: e.quote, quote_found: quoteIn(conv.transcript[e.message - 1]?.text, e.quote), speaker: conv.transcript[e.message - 1].speaker, timestamp: conv.transcript[e.message - 1].timestamp, offset_sec: conv.transcript[e.message - 1].offset_sec }));
     const clamp = (x) => (x == null ? null : Math.min(Math.max(1, x), maxIdx));
     out[c.id] = {
-      answer, warning, explanation: r.explanation, evidence,
+      answer, warning, explanation: r.explanation, evidence, source: r.rule ? 'rule' : 'model',
       checked_range: r.checked_from != null || r.checked_to != null ? { from: clamp(r.checked_from ?? r.checked_to), to: clamp(r.checked_to ?? r.checked_from) } : null,
     };
   }
@@ -185,29 +188,73 @@ export function vote(checklist, runs) {
   return result;
 }
 
+const norm = (x) => String(x || '').toLowerCase().replace(/[«»"'.,!?…:;()\-–—]/g, ' ').replace(/\s+/g, ' ').trim();
+// модель копирует в цитату служебную приставку строки транскрипта: «#10 [01:15] OPERATOR: …»
+export const cleanQuote = (q) => String(q || '').replace(/^\s*(#\d+\s*)?(\[\+?[\d:]+\]\s*)?(\[?(CLIENT|OPERATOR|BOT|SYSTEM)\]?\s*:\s*)?/i, '').replace(/^\[|\]$/g, '').trim();
+// модель сокращает цитаты — сверяем первые слова
+const quoteIn = (text, quote) => { const q = norm(quote).split(' ').slice(0, 4).join(' '); return !q || norm(text).includes(q); };
+
+/** Модель часто сдвигает номер реплики на 1–2. Если цитата есть в другой реплике — берём ближайшую к указанной. */
+export function locateQuote(conv, e) {
+  const t = conv.transcript;
+  if (quoteIn(t[e.message - 1]?.text, e.quote)) return e.message;
+  const hits = t.filter((m) => quoteIn(m.text, e.quote)).map((m) => m.idx);
+  if (!hits.length) return e.message;
+  return hits.sort((a, b) => Math.abs(a - e.message) - Math.abs(b - e.message))[0];
+}
+
+/**
+ * Поводы для проверки человеком: то, что можно проверить кодом, а не «уверенность» модели на слово.
+ * Ответ правила считается надёжным; грубая ошибка всегда идёт к человеку.
+ */
+export function doubtsFor(c, r, conv) {
+  if (r.source === 'rule') return [];
+  const out = [];
+  if (c.type === 'flag' && r.answer === 'yes') out.push('найдена грубая ошибка — подтвердите');
+  if (r.warning) out.push(r.warning);
+  if (r.agreement != null && r.agreement < 1 && r.votes?.length > 1) out.push(`прогоны модели разошлись (${r.votes.join(', ')})`);
+  // номер реплики уже исправлен locateQuote; если цитаты нет и после этого — модель её придумала
+  const bad = (r.evidence || []).find((e) => !quoteIn(conv.transcript[e.message - 1]?.text, e.quote));
+  if (bad) out.push(`цитаты «${String(bad.quote).slice(0, 40)}» нет в диалоге`);
+  const lost = r.answer === 'no' || (c.type === 'scale' && r.answer !== 'na' && Number(r.answer) < Math.max(...c.scale.map((s) => s.value)));
+  if (c.type !== 'flag' && lost && !r.evidence?.length && !r.checked_range) out.push('снижение без указанной реплики');
+  return out;
+}
+
 /** Один прогон оценки в режиме per-criterion: последовательные вызовы (общий префикс промпта кэшируется моделью). */
-async function runPerCriterion(conv, checklist) {
+async function runPerCriterion(conv, checklist, onCriterion, signal) {
   const system = buildCriterionSystemPrompt(checklist);
   const criteria = {}; const texts = []; const usage = {}; let cost = 0; let model;
   for (const c of checklist.criteria) {
-    const r = await completeJSON({ system, user: buildCriterionUserPrompt(conv, c), schema: criterionItem(c) });
+    if (signal?.aborted) throw new Error('Оценка остановлена');
+    const rule = ruleFor(conv, c);
+    const emit = (x, byRule) => onCriterion?.({ criterion_id: c.id, answer: normalizeAnswer(c, x.answer).answer, label: answerLabel(c, normalizeAnswer(c, x.answer).answer), explanation: x.explanation, rule: byRule });
+    if (rule?.answer) { criteria[c.id] = rule; texts.push(`[${c.id}] правило: ${JSON.stringify(rule)}`); emit(rule, true); continue; }
+    const crit = rule?.criterion || c;
+    const r = await completeJSON({ system, user: buildCriterionUserPrompt(conv, crit, rule?.note), schema: criterionItem(crit) });
     criteria[c.id] = r.parsed;
     texts.push(`[${c.id}] ${r.text}`);
+    emit(r.parsed, false);
     for (const [k, v] of Object.entries(r.usage || {})) if (typeof v === 'number') usage[k] = (usage[k] || 0) + v;
     cost += r.cost_usd; model = r.model;
   }
   return { parsed: { criteria, summary: '' }, usage, cost_usd: cost, text: texts.join('\n'), model };
 }
 
-export async function evaluateConversation(conv, checklist, { runs = RUNS, mode = MODE } = {}) {
+/** onCriterion(info) — вызывается по мере готовности каждого критерия (только режим per-criterion, первый прогон). */
+export async function evaluateConversation(conv, checklist, { runs = RUNS, mode = MODE, onCriterion, signal } = {}) {
   const perCriterion = mode === 'per-criterion';
   const system = perCriterion ? buildCriterionSystemPrompt(checklist) : buildSystemPrompt(checklist);
-  const user = perCriterion ? checklist.criteria.map((c) => buildCriterionUserPrompt(conv, c)).join('\n\n=====\n\n') : buildUserPrompt(conv);
+  const user = perCriterion ? checklist.criteria.map((c) => buildCriterionUserPrompt(conv, c, ruleFor(conv, c)?.note)).join('\n\n=====\n\n') : buildUserPrompt(conv);
   const started = Date.now();
   const schema = buildResultSchema(checklist);
   const calls = perCriterion
-    ? await (async () => { const out = []; for (let i = 0; i < runs; i++) out.push(await runPerCriterion(conv, checklist)); return out; })()
+    ? await (async () => { const out = []; for (let i = 0; i < runs; i++) out.push(await runPerCriterion(conv, checklist, i === 0 ? onCriterion : null, signal)); return out; })()
     : await Promise.all(Array.from({ length: runs }, () => completeJSON({ system, user, schema })));
+  if (!perCriterion) for (const r of calls) for (const c of checklist.criteria) {
+    const rule = ruleFor(conv, c);
+    if (rule?.answer && r.parsed?.criteria) r.parsed.criteria[c.id] = rule;
+  }
   const validated = calls.map((r) => validateRun(checklist, conv, r.parsed));
   const merged = runs > 1 ? vote(checklist, validated) : Object.fromEntries(Object.entries(validated[0]).map(([k, v]) => [k, { ...v, agreement: 1 }]));
 
@@ -216,6 +263,8 @@ export async function evaluateConversation(conv, checklist, { runs = RUNS, mode 
 
   const answers = Object.fromEntries(checklist.criteria.map((c) => [c.id, merged[c.id].answer]));
   const score = computeScore(checklist, answers);
+  for (const c of checklist.criteria) merged[c.id].doubts = doubtsFor(c, merged[c.id], conv);
+  const review_reasons = checklist.criteria.flatMap((c) => merged[c.id].doubts.map((d) => `${c.name}: ${d}`));
   const usage = calls.reduce((s, r) => {
     for (const [k, v] of Object.entries(r.usage || {})) if (typeof v === 'number') s[k] = (s[k] || 0) + v;
     return s;
@@ -245,6 +294,7 @@ export async function evaluateConversation(conv, checklist, { runs = RUNS, mode 
     original_score: score,
     final_score: score,
     status: 'evaluated',
+    needs_review: review_reasons.length > 0, review_reasons,
     trace: { system_prompt: system, user_prompt: user, raw_outputs: calls.map((r) => r.text) },
   };
 }
@@ -265,6 +315,27 @@ export function migrateTraces() {
     db.writeBlob('traces', e.id, e.trace); delete e.trace; n++;
   }
   if (n) { db.update('evaluations', db.all('evaluations')[0].id, {}); console.log(`[db] трассировки ${n} оценок перенесены в storage/traces`); }
+}
+
+/** Оценки, сделанные до появления сверки цитат и «нужна проверка», дополняются при запуске — кодом, без модели. */
+export function backfillReview() {
+  let n = 0;
+  for (const ev of db.all('evaluations')) {
+    if (ev.review_reasons || ev.status === 'manual') continue;
+    const conv = db.get('conversations', ev.conversation_id, 'conversation_id');
+    if (!conv) continue;
+    for (const cr of ev.criteria) {
+      const c = ev.checklist.criteria.find((x) => x.id === cr.criterion_id);
+      if (!c || !cr.ai) continue;
+      cr.ai.evidence = (cr.ai.evidence || []).map((e) => { const quote = cleanQuote(e.quote); const message = locateQuote(conv, { ...e, quote }); const m = conv.transcript[message - 1]; return { ...e, quote, message, speaker: m?.speaker, timestamp: m?.timestamp, offset_sec: m?.offset_sec }; });
+      cr.ai.source ||= /проверено правилом/.test(cr.ai.explanation || '') ? 'rule' : 'model';
+      cr.ai.doubts = doubtsFor(c, cr.ai, conv);
+    }
+    ev.review_reasons = ev.criteria.flatMap((cr) => (cr.ai?.doubts || []).map((d) => `${ev.checklist.criteria.find((x) => x.id === cr.criterion_id)?.name}: ${d}`));
+    ev.needs_review = ev.review_reasons.length > 0;
+    n++;
+  }
+  if (n) { db.update('evaluations', db.all('evaluations')[0].id, {}); console.log(`[db] сверка цитат и поводы для проверки добавлены к ${n} оценкам`); }
 }
 
 export function recomputeFinal(ev) {

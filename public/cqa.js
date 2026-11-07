@@ -92,6 +92,84 @@
       this.append(t);
       setTimeout(() => t.remove(), err ? 8000 : 3500);
     }
+    /**
+     * Живая оценка: карточка внизу справа показывает каждый критерий по мере готовности.
+     * Возвращает итоговую оценку { evaluation_id, total, duration_ms } или null при ошибке (карточка остаётся с текстом ошибки).
+     */
+    async evaluateLive(conversationId, checklistId) {
+      this.querySelector('.live')?.remove();
+      const started = Date.now();
+      const status = h('div', { class: 'live-status' }, 'Подключаюсь к модели…');
+      const list = h('ol', { class: 'live-list' });
+      const actions = h('div', { class: 'row live-actions', hidden: true });
+      const card = h('section', { class: 'live', role: 'status', 'aria-live': 'polite', 'aria-label': 'Ход оценки' },
+        h('div', { class: 'live-head' }, h('strong', {}, 'Оценка ИИ'), h('span', { class: 'muted' }, conversationId)), status, list, actions);
+      this.append(card);
+      const rows = new Map(); let total = 0; let done = 0;
+      const tick = () => { const sec = Math.round((Date.now() - started) / 1000); if (done < total) status.textContent = `Критерий ${done + 1} из ${total} · ${sec} с${sec > 120 ? ' · дольше обычного (~1 мин)' : ''}`; };
+      const timer = setInterval(tick, 1000);
+      const ac = new AbortController();
+      const stopBtn = h('button', { class: 'btn', onclick: () => ac.abort() }, 'Остановить');
+      actions.hidden = false; actions.replaceChildren(stopBtn);
+      const fail = (msg) => {
+        clearInterval(timer);
+        for (const r of rows.values()) if (!r.li.className.startsWith('done')) { r.li.className = 'wait'; r.st.textContent = 'не оценён'; }
+        status.textContent = ac.signal.aborted ? 'Остановлено. Оценка не сохранена.' : `Ошибка: ${msg}. Оценка не сохранена.`;
+        status.classList.add('bad');
+        actions.hidden = false;
+        actions.replaceChildren(
+          h('button', { class: 'btn primary', onclick: () => this.evaluateLive(conversationId, checklistId).then((r) => r && this.go(`#/c/${encodeURIComponent(conversationId)}?ev=${r.evaluation_id}`)) }, 'Повторить'),
+          h('button', { class: 'btn', onclick: () => card.remove() }, 'Закрыть'));
+        return null;
+      };
+      let res;
+      try {
+        res = await fetch(this.api + '/api/evaluate/stream', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ conversation_id: conversationId, checklist_id: checklistId }), signal: ac.signal });
+      } catch { return fail('сервер не отвечает'); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); return fail(e.error || `HTTP ${res.status}`); }
+      const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+      let buf = '', result = null;
+      const handle = (m) => {
+        if (m.type === 'start') {
+          total = m.criteria.length;
+          for (const c of m.criteria) {
+            const st = h('span', { class: 'live-state' }, 'ждёт');
+            const li = h('li', { class: 'wait' }, h('span', { class: 'live-name' }, `${c.code ? c.code + ' ' : ''}${c.name}`), st);
+            rows.set(c.id, { li, st, type: c.type, max: c.max }); list.append(li);
+          }
+          // в режиме одного вызова критерии приходят все сразу в конце
+          if (m.mode !== 'per-criterion') list.querySelectorAll('.live-state').forEach((x) => { x.textContent = 'в общем запросе'; });
+          else { const f = rows.values().next().value; if (f) { f.li.className = 'work'; f.st.textContent = 'оценивается…'; } }
+          tick();
+        } else if (m.type === 'criterion') {
+          const r = rows.get(m.criterion_id); if (!r) return;
+          done++;
+          // цвет — хорошо/плохо, а не буква ответа: у флага «Да» — нарушение, у шкалы цвет по доле баллов
+          const tone = r.type === 'flag' ? (m.answer === 'yes' ? 'bad' : 'ok') : m.answer === 'na' ? 'na' : m.answer === 'no' ? 'bad' : m.answer === 'yes' || r.max === Number(m.answer) ? 'ok' : 'mid';
+          r.li.className = `done t-${tone}`;
+          r.st.replaceChildren(...[h('b', {}, m.label), m.rule && h('span', { class: 'live-rule', title: 'Факт проверен кодом, без модели' }, 'правило')].filter(Boolean));
+          r.li.title = m.explanation || '';
+          const next = [...rows.values()].find((x) => x.li.className === 'wait');
+          if (next) { next.li.className = 'work'; next.st.textContent = 'оценивается…'; }
+          tick();
+        } else if (m.type === 'done') result = m;
+        else if (m.type === 'error') throw new Error(m.error);
+      };
+      try {
+        for (;;) {
+          const { value, done: end } = await reader.read();
+          if (value) { buf += value; let i; while ((i = buf.indexOf('\n')) >= 0) { const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1); if (line) handle(JSON.parse(line)); } }
+          if (end) break;
+        }
+      } catch (e) { return fail(e.message || 'обрыв связи'); }
+      if (!result) return fail('ответ сервера оборвался');
+      clearInterval(timer);
+      actions.hidden = true;
+      status.textContent = `Готово: ${fmt(result.total)} из 100 · ${Math.round(result.duration_ms / 1000)} с`;
+      status.classList.add('ok');
+      setTimeout(() => card.remove(), 6000);
+      return result;
+    }
     async guard(fn) { try { return await fn(); } catch (e) { this.toast(e.message, true); console.error(e); } }
 
     async init() {
@@ -190,7 +268,7 @@
           h('button', { class: 'btn', onclick: () => { pasteBox.hidden = true; } }, 'Отмена')));
 
       const filtered = convs.filter((c) =>
-        (!f.lang || c.language === f.lang) && (!f.channel || c.channel === f.channel) && (!f.group || c.group_id === f.group) &&
+        (!f.lang || c.language === f.lang) && (!f.channel || c.channel === f.channel) && (f.review !== 'need' || c.last_evaluation?.needs_review) && (!f.group || c.group_id === f.group) &&
         (!f.assignee || (f.assignee === '—' ? !c.assignee : c.assignee === f.assignee)) &&
         (!f.q || (c.conversation_id + ' ' + (c.title || '') + ' ' + c.preview).toLowerCase().includes(f.q.toLowerCase())));
 
@@ -219,7 +297,9 @@
             ev.original_total !== ev.total ? h('span', { class: 'small muted' }, ` (ИИ: ${fmt(ev.original_total)})`) : null,
             ev.gross ? h('div', {}, h('span', { class: 'tag no' }, 'грубая ошибка')) : null,
             h('div', { class: 'small muted' }, `${ev.checklist_name} v${ev.checklist_version}`)) : h('span', { class: 'muted small' }, 'не оценён')),
-          h('td', {}, ev ? h('span', { class: 'tag ' + (ev.status === 'appealed' ? 'warn' : ev.status === 'reviewed' ? 'yes' : '') }, { evaluated: 'оценён', appealed: 'апелляция', reviewed: 'пересмотрен', manual: 'ручная' }[ev.status] || ev.status) : null),
+          h('td', {}, ev ? (ev.needs_review
+            ? h('span', { class: 'tag warn', title: ev.review_reasons.join('\n') }, 'нужна проверка')
+            : h('span', { class: 'tag ' + (ev.status === 'appealed' ? 'warn' : ev.status === 'reviewed' ? 'yes' : '') }, { evaluated: 'оценён', appealed: 'апелляция', reviewed: 'пересмотрен', manual: 'ручная' }[ev.status] || ev.status)) : null),
           h('td', { onclick: (e) => e.stopPropagation() }, h('select', { class: 'assignee', 'aria-label': 'Проверяющий', onchange: (e) => this.guard(async () => { await this.req('POST', '/api/assign', { conversation_ids: [c.conversation_id], assignee: e.target.value || null }); c.assignee = e.target.value || null; }) },
             h('option', { value: '' }, '—'), [...new Set([...reviewerNames, ...(c.assignee ? [c.assignee] : [])])].map((n) => h('option', { value: n, selected: c.assignee === n ? 'selected' : null }, n))))));
       }
@@ -284,6 +364,7 @@
               select('group', groups.map((g) => [g.group_id, `${g.group_id} (${g.count})`]), 'Все наборы'),
               select('lang', [['RU', 'RU'], ['KZ', 'KZ'], ['EN', 'EN']], 'Все языки'),
               select('channel', [['agent chat', 'Чаты'], ['voice call', 'Звонки']], 'Все каналы'),
+              select('review', [['need', `Нужна проверка (${convs.filter((c) => c.last_evaluation?.needs_review).length})`]], 'Все оценки'),
               select('assignee', [['—', 'Не назначены'], ...reviewerNames.map((n) => [n, n])], 'Все проверяющие'),
               h('span', { class: 'muted small' }, `${filtered.length} из ${convs.length}`, avg != null ? `, средний итог ${fmt(avg)}` : ''),
               h('div', { class: 'spacer' }),
@@ -348,9 +429,8 @@
       const evalBtn = h('button', { class: 'btn primary', title: `Чек-лист «${cl.name}» v${cl.version}`, onclick: async () => {
         evalBtn.disabled = true; evalBtn.textContent = 'Идёт оценка…';
         await this.guard(async () => {
-          const r = await this.req('POST', '/api/evaluate', { conversation_id: conv.conversation_id, checklist_id: cl.id });
-          this.toast(`Готово: ${fmt(r.final_score.total)} из 100, ${Math.round(r.duration_ms / 1000)} с`);
-          this.go(`#/c/${encodeURIComponent(conv.conversation_id)}?ev=${r.id}`);
+          const r = await this.evaluateLive(conv.conversation_id, cl.id);
+          if (r) this.go(`#/c/${encodeURIComponent(conv.conversation_id)}?ev=${r.evaluation_id}`);
         });
         evalBtn.disabled = false; evalBtn.textContent = ev ? 'Переоценить' : 'Оценить';
       } }, ev ? 'Переоценить' : 'Оценить');
@@ -489,7 +569,7 @@
           const state2 = na ? 'na' : p.points >= p.max_points - 0.001 ? 'ok' : p.points > 0 ? 'part' : 'no';
           list.append(h('button', { class: `q-row ${state2}`, type: 'button', title: r.ai.explanation, onclick: () => { focusCrit = { c, r }; renderWhy(); } },
             h('span', { class: 'q-ico', html: ICONS[state2 === 'no' ? 'no' : state2 === 'na' ? 'na' : 'ok'] }),
-            h('span', { class: 'q-name' }, c.name),
+            h('span', { class: 'q-name' }, c.name, r.ai.doubts?.length ? h('span', { class: 'q-doubt', title: r.ai.doubts.join('\n') }, ' · проверить') : null),
             h('span', { class: 'q-pts' }, na ? 'N/A' : h('span', {}, h('b', {}, fmt(p.points, 1)), ` / ${fmt(p.max_points, 1)}`))));
         }
         const flag = rows.find(({ c }) => c.type === 'flag');
@@ -508,7 +588,18 @@
         };
         renderWhy();
         const appealBox = h('div');
+        const reviewed = ev.reviewed || ev.status === 'reviewed';
+        const meta = ev.provider === 'manual' || ev.status === 'manual' ? null : h('div', { class: 'ai-meta small muted' },
+          h('span', { class: 'ai-mark' }, 'ИИ'), ` ${ev.model || ''} · ${Math.round((ev.duration_ms || 0) / 1000)} с`,
+          ev.usage ? ` · ${fmt(((ev.usage.input_tokens || 0) + (ev.usage.output_tokens || 0)) / 1000, 1)} тыс. токенов` : '',
+          ` · ${ev.cost_usd ? '$' + fmt(ev.cost_usd, 4) : 'бесплатно, локальная модель'}`);
+        const reviewBox = ev.needs_review && !reviewed ? h('div', { class: 'need-review', role: 'note' },
+          h('b', {}, 'Нужна проверка человеком'),
+          h('ul', {}, (ev.review_reasons || []).slice(0, 4).map((x) => h('li', {}, x))),
+          h('button', { class: 'btn sm', type: 'button', onclick: () => this.guard(async () => { await this.req('POST', `/api/evaluations/${ev.id}/confirm`, {}); this.toast('Оценка подтверждена'); this.render(); }) }, 'Подтвердить оценку'))
+          : ev.reviewed ? h('div', { class: 'small muted' }, `Проверено: ${ev.reviewed_by}, ${fmtDate(ev.reviewed_at)}`) : null;
         appendAll(qPanel,
+          meta, reviewBox,
           h('div', { class: 'q-top' }, ring, list),
           flag?.r.final_answer === 'yes' ? h('div', { class: 'gross', html: ICONS.warn }, h('span', {}, h('b', {}, 'Грубая ошибка. '), flag.r.ai.explanation)) : null,
           fs.total !== ev.original_score.total ? h('div', { class: 'small muted' }, `После пересмотра. Исходная оценка ИИ: ${fmt(ev.original_score.total)}`) : null,
@@ -516,7 +607,18 @@
         this.renderEvaluation(details, ev, conv, (idx) => select(idx), { noTotals: true });
       }
 
-      appendAll(view, head, media, h('div', { class: 'card-cols' }, trPanel, qPanel),
+      const M = conv.metrics;
+      const stat = (label, value, note) => h('div', { class: 'mt' }, h('span', { class: 'mt-l' }, label), h('b', {}, value), note ? h('span', { class: 'mt-n' }, note) : null);
+      const jumpList = (idxs, fmtOne) => idxs.length ? h('span', { class: 'mt-n' }, idxs.slice(0, 4).map((x, i) => h('a', { href: 'javascript:void 0', onclick: () => select(x.idx ?? x) }, (i ? ', ' : '') + fmtOne(x)))) : null;
+      const metrics = M ? h('div', { class: 'panel metrics', 'aria-label': 'Метрики разговора' },
+        stat('Ответ оператора', M.response_avg_sec == null ? '—' : `${M.response_avg_sec} с`, M.response_max_sec != null ? `в среднем; максимум ${M.response_max_sec} с` : null),
+        h('div', { class: 'mt' }, h('span', { class: 'mt-l' }, isCall ? 'Паузы ≥ 10 с' : 'Ожидание ≥ 1,5 мин'), h('b', {}, String(M.long_pauses.length)),
+          jumpList(M.long_pauses.map((p) => ({ idx: p.before, sec: p.sec })), (p) => `#${p.idx} (${p.sec} с)`)),
+        h('div', { class: 'mt' }, h('span', { class: 'mt-l' }, 'Предупредил об ожидании'), h('b', {}, String(M.hold_announcements.length)), jumpList(M.hold_announcements, (x) => `#${x}`)),
+        stat('Доля оператора', M.operator_share == null ? '—' : `${M.operator_share}%`, isCall ? 'времени речи' : 'объёма переписки'),
+        isCall ? stat('Перебивания', String(M.interruptions), 'оператор заговорил раньше, чем клиент мог договорить') : null,
+        h('p', { class: 'mt-src small muted' }, 'Считается кодом по времени реплик в расшифровке, без ИИ.')) : null;
+      appendAll(view, head, media, metrics, h('div', { class: 'card-cols' }, trPanel, qPanel),
         h('div', { class: 'card-cols', style: { marginTop: '1rem' } }, this.assistantPanel(conv, ev), this.whatIfPanel(conv, ev)),
         ev ? h('h2', { class: 'section-title' }, 'Подробно по критериям') : null, details);
       requestAnimationFrame(draw);
@@ -532,7 +634,9 @@
       const f = this.state.filters;
       if (!f.group || !groups.some((g) => g.group_id === f.group)) f.group = groups.find((g) => g.group_id === 'DEV')?.group_id || groups[0]?.group_id || '';
       const cl = this.checklist;
-      const a = await this.req('GET', `/api/analytics?group_id=${encodeURIComponent(f.group)}&checklist_id=${cl?.id || ''}`);
+      const [a, acc] = await Promise.all([
+        this.req('GET', `/api/analytics?group_id=${encodeURIComponent(f.group)}&checklist_id=${cl?.id || ''}`),
+        this.req('GET', '/api/accuracy').catch(() => ({ date: null }))]);
       const tip = h('div', { class: 'tip', hidden: true, role: 'tooltip' });
       const showTip = (e, text) => { tip.textContent = text; tip.hidden = false; tip.style.left = Math.min(e.clientX + 14, window.innerWidth - 300) + 'px'; tip.style.top = (e.clientY + 14) + 'px'; };
       const hideTip = () => { tip.hidden = true; };
@@ -569,6 +673,22 @@
       const weakest = h('div', { class: 'weak' }, a.weakest.map((w) => h('a', { class: 'weak-row', href: `#/c/${encodeURIComponent(w.conversation_id)}` },
         h('span', {}, w.conversation_id), w.gross ? h('span', { class: 'tag no' }, 'грубая ошибка') : h('span'), h('b', {}, fmt(w.total)))));
 
+      // точность ИИ относительно экспертной разметки (последний замер pnpm eval)
+      const bars = (rows) => h('div', { class: 'hbars' }, rows.map((r) => h('div', { class: 'hbar-row' },
+        h('span', { class: 'hbar-name' }, r.name),
+        hover(h('div', { class: 'hbar-track' }, h('div', { class: 'hbar-fill', style: { width: (r.agreement ?? 0) + '%' } })), `${r.name}: совпадение ${fmt(r.agreement, 1)}% на ${r.n} ответах`),
+        h('span', { class: 'hbar-val' }, r.agreement == null ? '—' : fmt(r.agreement, 1) + '%'))));
+      const accuracy = acc.date ? h('div', { class: 'panel accuracy' },
+        h('h2', {}, 'Совпадение ИИ с экспертом'),
+        h('p', { class: 'small muted' }, `Ответы ИИ сравнены с ручной разметкой команды: ${acc.dialogs} диалогов, ${acc.answers} ответов по критериям. Модель ${acc.model}, чек-лист v${acc.checklist_version}, замер ${fmtDate(acc.date)}.`),
+        h('div', { class: 'kpis' },
+          kpi('Совпадение ответов', fmt(acc.agreement, 1) + '%', `без спорных случаев ${fmt(acc.agreement_sure, 1)}%`),
+          kpi('Ошибка итога', fmt(acc.mae, 1), 'среднее расхождение с экспертом, баллов из 100'),
+          kpi('Грубые ошибки', `${acc.gross.tp} из ${acc.gross.tp + acc.gross.fn}`, `найдено ИИ; ложных срабатываний ${acc.gross.fp}`)),
+        h('div', { class: 'an-grid' },
+          h('div', {}, h('h3', {}, 'По критериям'), bars(acc.criteria.map((c) => ({ ...c, name: `${c.code || ''} ${c.name}`.trim() })))),
+          acc.languages.length ? h('div', {}, h('h3', {}, 'По языкам'), bars(acc.languages.map((l) => ({ ...l, name: LANG_NAME[l.key] || l.key })))) : null)) : null;
+
       view.append(head,
         h('div', { class: 'kpis' },
           kpi('Средний итог', fmt(a.avg), `медиана ${fmt(a.median)}`),
@@ -584,6 +704,7 @@
             h('div', { class: 'panel' }, h('h2', {}, 'Средний итог по языкам'), langChart,
               tableToggle(a.by_language.map((l) => [LANG_NAME[l.key] || l.key, fmt(l.avg), l.count]), ['Язык', 'Средний итог', 'Диалогов'])))),
         h('div', { class: 'panel' }, h('h2', {}, 'Требуют внимания'), h('p', { class: 'small muted' }, 'Диалоги с самым низким итогом.'), weakest),
+        accuracy,
         tip);
     }
 
@@ -606,9 +727,8 @@
         try {
           const conv = await this.req('POST', '/api/sandbox/create', payload);
           btn.textContent = 'Идёт оценка…';
-          const ev = await this.req('POST', '/api/evaluate', { conversation_id: conv.conversation_id, checklist_id: cl.id });
-          this.toast(`Готово: ${fmt(ev.final_score.total)} из 100`);
-          this.go(`#/c/${encodeURIComponent(conv.conversation_id)}?ev=${ev.id}`);
+          const ev = await this.evaluateLive(conv.conversation_id, cl.id);
+          if (ev) this.go(`#/c/${encodeURIComponent(conv.conversation_id)}?ev=${ev.evaluation_id}`);
         } catch (e) { this.toast(e.message, true); } finally { btn.disabled = false; btn.textContent = label; }
       };
       const meta = (defaults = {}) => {
@@ -671,8 +791,8 @@
             const r = await this.req('POST', '/api/conversations/upload?group_id=SANDBOX', text);
             if (r.imported.length === 1) {
               go.textContent = 'Идёт оценка…';
-              const ev = await this.req('POST', '/api/evaluate', { conversation_id: r.imported[0], checklist_id: cl.id });
-              this.go(`#/c/${encodeURIComponent(r.imported[0])}?ev=${ev.id}`);
+              const ev = await this.evaluateLive(r.imported[0], cl.id);
+              if (ev) this.go(`#/c/${encodeURIComponent(r.imported[0])}?ev=${ev.evaluation_id}`);
             } else { this.toast(`Загружено диалогов: ${r.imported.length}. Оцените их в разделе «Диалоги», набор SANDBOX.`); localStorage.setItem('cqa.group', 'SANDBOX'); this.go('#/'); }
           } finally { go.disabled = false; go.textContent = 'Загрузить и оценить'; }
         }) }, 'Загрузить и оценить');
@@ -907,7 +1027,8 @@
             h('b', {}, `#${e.message}`), h('span', {}, `${ROLE[e.speaker] || ''}: «${e.quote}»`)))) : null,
           ai.checked_range ? h('div', { class: 'small', style: { marginTop: '4px' } },
             h('a', { href: 'javascript:void 0', onclick: () => jump(ai.checked_range.from, ai.checked_range) }, ai.checked_range.from === ai.checked_range.to ? `Проверенный участок: реплика #${ai.checked_range.from}` : `Проверенный участок: реплики #${ai.checked_range.from}–#${ai.checked_range.to}`)) : null,
-          ai.warning ? h('div', { class: 'small', style: { color: 'var(--warn)' } }, '⚠ ', ai.warning) : null,
+          ai.source === 'rule' ? h('div', { class: 'small muted' }, 'Проверено правилом в коде, без модели.') : null,
+          ai.doubts?.length ? h('div', { class: 'small', style: { color: 'var(--warn)' } }, 'Проверьте: ', ai.doubts.join('; ')) : ai.warning ? h('div', { class: 'small', style: { color: 'var(--warn)' } }, ai.warning) : null,
           ai.agreement != null && ev.runs > 1 ? h('div', { class: 'small muted' }, `согласие прогонов: ${Math.round(ai.agreement * 100)}% (${(ai.votes || []).join(', ')})`) : null,
           r.review ? h('div', { class: 'review' },
             h('b', {}, r.review.action === 'change' ? 'Оценка изменена проверяющим' : 'Оценка подтверждена проверяющим'), ': ',
@@ -1027,6 +1148,22 @@
             h('dt', {}, 'Причина'), h('dd', {}, d.reason),
             h('dt', {}, 'Проверяющий'), h('dd', {}, `${d.reviewer}, ${fmtDate(d.decided_at)}`),
             h('dt', {}, 'Итог диалога'), h('dd', {}, h('b', {}, `${fmt(d.total_before)} → ${fmt(d.total_after)}`))));
+        if (d.action === 'change') {
+          const crit = ap.criterion_name || ap.criterion_id;
+          if (ap.learned) decision.append(h('p', { class: 'small muted' }, `Добавлено в «Уточнения для ИИ» критерия «${crit}», чек-лист v${ap.learned.version}.`));
+          else {
+            const text = h('textarea', { rows: 3, 'aria-label': 'Уточнение для ИИ' }, `Пример из апелляции (${ap.conversation_id}): ИИ ответил «${ap.disputed_label}», правильно — «${d.new_label}». ${d.reason}`);
+            decision.append(h('div', { class: 'learn' },
+              h('h3', {}, 'Научить ИИ на этом решении'),
+              h('p', { class: 'small muted' }, `Текст добавится в «Уточнения для ИИ» критерия «${crit}». Сохранится новая версия чек-листа; уже выставленные оценки не изменятся.`),
+              text,
+              h('button', { class: 'btn', onclick: () => this.guard(async () => {
+                const r = await this.req('POST', `/api/appeals/${ap.id}/learn`, { text: text.value });
+                await this.refreshChecklists();
+                this.toast(`Чек-лист обновлён до v${r.checklist.version}`); this.render();
+              }) }, 'Добавить в чек-лист')));
+          }
+        }
       }
 
       view.append(h('div', { class: 'stack' },
@@ -1091,8 +1228,8 @@
       const drawSections = () => {
         sectionsBox.replaceChildren(...draft.sections.map((s, i) => h('div', { class: 'row' },
           h('input', { type: 'text', value: s.id, style: { width: '110px' }, title: 'id секции', onchange: (e) => { const old = s.id; s.id = e.target.value.trim(); draft.criteria.forEach((c) => { if (c.section === old) c.section = s.id; }); drawCriteria(); } }),
-          inp(s, 'name', { style: { flex: 1 } }),
-          h('button', { class: 'btn sm danger', onclick: () => { draft.sections.splice(i, 1); drawSections(); drawCriteria(); } }, '✕'))),
+          inp(s, 'name', { style: { flex: 1, minWidth: 0 }, 'aria-label': 'Название секции' }),
+          h('button', { class: 'btn sm danger', 'aria-label': 'Удалить секцию', onclick: () => { draft.sections.splice(i, 1); drawSections(); drawCriteria(); } }, '✕'))),
         h('button', { class: 'btn sm', onclick: () => { draft.sections.push({ id: 's' + (draft.sections.length + 1), name: 'Новая секция' }); drawSections(); drawCriteria(); } }, '+ секция'));
       };
 
@@ -1125,7 +1262,7 @@
 
       drawSections();
       drawCriteria();
-      view.append(h('div', { style: { display: 'grid', gridTemplateColumns: 'minmax(200px, 260px) 1fr', gap: '16px' } }, side, editor));
+      view.append(h('div', { class: 'cl-layout' }, side, editor));
     }
 
     criterionEditor(draft, c, i, { inp, area, bind, redraw, updateWeights }) {
@@ -1165,9 +1302,9 @@
       return h('div', {},
         h('div', { class: 'small muted' }, 'Шкала: ступени (верхняя ступень даёт полный вес критерия)'),
         c.scale.map((s, j) => h('div', { class: 'scale-row' },
-          h('input', { type: 'number', value: s.value, oninput: (e) => { s.value = Number(e.target.value); } }),
-          h('input', { type: 'text', value: s.label, oninput: (e) => { s.label = e.target.value; } }),
-          h('button', { class: 'btn sm danger', onclick: () => { c.scale.splice(j, 1); redraw(); } }, '✕'))),
+          h('input', { type: 'number', value: s.value, 'aria-label': 'Баллы ступени', oninput: (e) => { s.value = Number(e.target.value); } }),
+          h('input', { type: 'text', value: s.label, 'aria-label': 'Описание ступени', oninput: (e) => { s.label = e.target.value; } }),
+          h('button', { class: 'btn sm danger', 'aria-label': 'Удалить ступень', onclick: () => { c.scale.splice(j, 1); redraw(); } }, '✕'))),
         h('button', { class: 'btn sm', style: { marginTop: '4px' }, onclick: () => { c.scale.push({ value: 0, label: '' }); redraw(); } }, '+ ступень'));
     }
   }
